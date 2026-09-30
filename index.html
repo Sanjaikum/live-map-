@@ -5,12 +5,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Mechtrobotics | Tree Detection Dashboard</title>
+    <title>Mechtrobotics | Live Tree Detection</title>
 
     <!-- MQTT.js -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
+    <!-- Leaflet -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    </script>
+
     <style>
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -18,646 +29,1301 @@
         }
 
         body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f4f7fb;
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+
+            background: #f3f6fa;
             color: #172033;
         }
 
+        /* ================= HEADER ================= */
+
         header {
+
             background: #101828;
+
             color: white;
+
             padding: 18px 25px;
+
             display: flex;
+
             justify-content: space-between;
+
             align-items: center;
+
             flex-wrap: wrap;
-            gap: 12px;
+
+            gap: 15px;
         }
 
         .brand h1 {
+
             font-size: 22px;
+
         }
 
         .brand p {
+
             font-size: 13px;
-            opacity: 0.7;
+
             margin-top: 4px;
+
+            color: #98a2b3;
         }
 
         .connection {
+
             display: flex;
+
             align-items: center;
+
             gap: 9px;
+
             font-size: 14px;
         }
 
         .status-dot {
+
             width: 11px;
+
             height: 11px;
+
             border-radius: 50%;
+
             background: #f04438;
         }
 
         .status-dot.connected {
+
             background: #12b76a;
-            box-shadow: 0 0 10px rgba(18, 183, 106, 0.7);
+
+            box-shadow:
+                0 0 10px
+                rgba(18,183,106,0.8);
         }
+
+        /* ================= CONTAINER ================= */
 
         .container {
-            max-width: 1250px;
+
+            max-width: 1400px;
+
             margin: auto;
-            padding: 25px;
+
+            padding: 22px;
         }
 
+        /* ================= HERO ================= */
+
         .hero {
+
             background: white;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 20px;
+
             border: 1px solid #e4e7ec;
+
+            border-radius: 16px;
+
+            padding: 22px;
+
+            margin-bottom: 20px;
         }
 
         .hero h2 {
-            font-size: 26px;
-            margin-bottom: 8px;
+
+            font-size: 25px;
+
+            margin-bottom: 7px;
         }
 
         .hero p {
+
             color: #667085;
+
+            font-size: 14px;
         }
 
+        /* ================= CARDS ================= */
+
         .cards {
+
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
+
+            grid-template-columns:
+                repeat(5, 1fr);
+
+            gap: 15px;
+
             margin-bottom: 20px;
         }
 
         .card {
+
             background: white;
-            border: 1px solid #e4e7ec;
+
+            border:
+                1px solid #e4e7ec;
+
             border-radius: 14px;
-            padding: 20px;
-            min-height: 130px;
+
+            padding: 18px;
+
+            min-height: 120px;
         }
 
         .card-title {
+
             color: #667085;
+
             font-size: 13px;
+
             margin-bottom: 12px;
         }
 
         .card-value {
-            font-size: 28px;
-            font-weight: bold;
+
+            font-size: 27px;
+
+            font-weight: 700;
         }
 
-        .card-unit {
-            font-size: 14px;
+        .unit {
+
+            font-size: 13px;
+
             color: #667085;
-            margin-left: 3px;
+
         }
+
+        .online {
+
+            color: #027a48;
+
+        }
+
+        .offline {
+
+            color: #b42318;
+
+        }
+
+        /* ================= MAP ================= */
+
+        .map-panel {
+
+            background: white;
+
+            border:
+                1px solid #e4e7ec;
+
+            border-radius: 16px;
+
+            padding: 15px;
+
+            margin-bottom: 20px;
+        }
+
+        .map-header {
+
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+            margin-bottom: 12px;
+
+            flex-wrap: wrap;
+
+            gap: 10px;
+        }
+
+        .map-header h3 {
+
+            font-size: 18px;
+
+        }
+
+        .map-status {
+
+            font-size: 13px;
+
+            color: #667085;
+
+        }
+
+        #map {
+
+            width: 100%;
+
+            height: 500px;
+
+            border-radius: 12px;
+
+            overflow: hidden;
+        }
+
+        /* ================= GRID ================= */
 
         .grid {
+
             display: grid;
-            grid-template-columns: 1fr 1fr;
+
+            grid-template-columns:
+                1fr 1fr;
+
             gap: 20px;
+
             margin-bottom: 20px;
         }
 
         .panel {
+
             background: white;
-            border: 1px solid #e4e7ec;
+
+            border:
+                1px solid #e4e7ec;
+
             border-radius: 14px;
+
             padding: 20px;
         }
 
         .panel h3 {
-            margin-bottom: 18px;
+
             font-size: 18px;
+
+            margin-bottom: 16px;
+
         }
 
         .info-row {
+
             display: flex;
+
             justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid #eaecf0;
+
             gap: 15px;
+
+            padding: 11px 0;
+
+            border-bottom:
+                1px solid #eaecf0;
         }
 
         .info-row:last-child {
+
             border-bottom: none;
         }
 
         .label {
+
             color: #667085;
         }
 
         .value {
+
             font-weight: 600;
+
             text-align: right;
+
             word-break: break-word;
         }
 
-        .map-btn {
-            display: inline-block;
-            margin-top: 18px;
-            padding: 11px 17px;
-            background: #175cd3;
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-size: 14px;
+        /* ================= BUTTON ================= */
+
+        .button-row {
+
+            display: flex;
+
+            gap: 10px;
+
+            margin-top: 16px;
+
+            flex-wrap: wrap;
         }
 
-        .map-btn:hover {
-            background: #1849a9;
+        button {
+
+            border: none;
+
+            border-radius: 8px;
+
+            padding: 10px 15px;
+
+            cursor: pointer;
+
+            font-weight: 600;
         }
+
+        .primary-btn {
+
+            background: #175cd3;
+
+            color: white;
+        }
+
+        .secondary-btn {
+
+            background: #eaecf0;
+
+            color: #344054;
+        }
+
+        /* ================= LOG ================= */
 
         .logs {
+
             background: #101828;
+
             color: #d0d5dd;
-            border-radius: 12px;
-            padding: 15px;
-            height: 250px;
+
+            height: 240px;
+
             overflow-y: auto;
+
+            border-radius: 10px;
+
+            padding: 14px;
+
             font-family: monospace;
+
             font-size: 12px;
         }
 
         .log-line {
+
             padding: 5px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+
+            border-bottom:
+                1px solid
+                rgba(255,255,255,0.05);
         }
 
-        .mqtt-config {
-            background: #fffaeb;
-            border: 1px solid #fedf89;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 20px;
-            color: #7a2e0e;
-        }
-
-        .mqtt-config strong {
-            display: block;
-            margin-bottom: 6px;
-        }
+        /* ================= FOOTER ================= */
 
         footer {
+
             text-align: center;
+
             padding: 25px;
+
             color: #667085;
+
             font-size: 13px;
         }
 
-        .online {
-            color: #027a48;
-        }
+        /* ================= MOBILE ================= */
 
-        .offline {
-            color: #b42318;
-        }
+        @media(max-width:1100px) {
 
-        @media (max-width: 950px) {
             .cards {
-                grid-template-columns: repeat(2, 1fr);
+
+                grid-template-columns:
+                    repeat(3,1fr);
+            }
+
+        }
+
+        @media(max-width:750px) {
+
+            .cards {
+
+                grid-template-columns:
+                    repeat(2,1fr);
             }
 
             .grid {
-                grid-template-columns: 1fr;
+
+                grid-template-columns:
+                    1fr;
             }
+
+            #map {
+
+                height: 400px;
+            }
+
         }
 
-        @media (max-width: 600px) {
-            header {
-                padding: 15px;
-            }
+        @media(max-width:500px) {
 
             .container {
-                padding: 15px;
+
+                padding: 12px;
             }
 
             .cards {
-                grid-template-columns: 1fr;
+
+                grid-template-columns:
+                    1fr;
+            }
+
+            #map {
+
+                height: 350px;
             }
 
             .hero h2 {
+
                 font-size: 21px;
             }
 
-            .card-value {
-                font-size: 25px;
-            }
         }
+
     </style>
+
 </head>
 
 <body>
 
+<!-- =========================================================
+     HEADER
+========================================================= -->
+
 <header>
+
     <div class="brand">
+
         <h1>Mechtrobotics</h1>
-        <p>AI & IoT Tree Detection System</p>
+
+        <p>
+            AI + IoT Tree Detection System
+        </p>
+
     </div>
 
     <div class="connection">
-        <span id="statusDot" class="status-dot"></span>
-        <span id="connectionText">Disconnected</span>
+
+        <span
+            id="statusDot"
+            class="status-dot">
+        </span>
+
+        <span id="connectionText">
+            Disconnected
+        </span>
+
     </div>
+
 </header>
+
 
 <div class="container">
 
+    <!-- =====================================================
+         HERO
+    ====================================================== -->
+
     <div class="hero">
-        <h2>Tree Detection Monitoring</h2>
+
+        <h2>
+            Live Tree Detection Monitoring
+        </h2>
+
         <p>
-            Live monitoring from Raspberry Pi + EC200U GPS + AI detection system.
+            Raspberry Pi + AI Detection + EC200U GNSS + HiveMQ
         </p>
+
     </div>
 
-    <div class="mqtt-config">
-        <strong>HiveMQ Cloud</strong>
-        The dashboard connects using MQTT over secure WebSockets.
-        Keep your MQTT credentials private and use a restricted dashboard credential.
-    </div>
 
-    <!-- MAIN CARDS -->
+    <!-- =====================================================
+         CARDS
+    ====================================================== -->
 
     <div class="cards">
 
         <div class="card">
-            <div class="card-title">Tree Count</div>
-            <div>
-                <span id="treeCount" class="card-value">0</span>
-                <span class="card-unit">trees</span>
+
+            <div class="card-title">
+                Tree Count
             </div>
+
+            <span
+                id="treeCount"
+                class="card-value">
+                0
+            </span>
+
+            <span class="unit">
+                trees
+            </span>
+
         </div>
 
+
         <div class="card">
-            <div class="card-title">GPS Status</div>
-            <div id="gpsStatus" class="card-value offline">
+
+            <div class="card-title">
+                GPS
+            </div>
+
+            <span
+                id="gpsStatus"
+                class="card-value offline">
                 NO FIX
-            </div>
+            </span>
+
         </div>
 
-        <div class="card">
-            <div class="card-title">Satellites</div>
-            <div>
-                <span id="satellites" class="card-value">0</span>
-                <span class="card-unit">satellites</span>
-            </div>
-        </div>
 
         <div class="card">
-            <div class="card-title">Device</div>
-            <div id="deviceStatus" class="card-value">
+
+            <div class="card-title">
+                Satellites
+            </div>
+
+            <span
+                id="satellites"
+                class="card-value">
+                0
+            </span>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                HDOP
+            </div>
+
+            <span
+                id="hdopCard"
+                class="card-value">
+                --
+            </span>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                Device
+            </div>
+
+            <span
+                id="deviceStatus"
+                class="card-value offline">
                 OFFLINE
-            </div>
+            </span>
+
         </div>
 
     </div>
 
-    <!-- GPS + DEVICE -->
+
+    <!-- =====================================================
+         LIVE MAP
+    ====================================================== -->
+
+    <div class="map-panel">
+
+        <div class="map-header">
+
+            <h3>
+                Live GPS Map
+            </h3>
+
+            <div
+                id="mapStatus"
+                class="map-status">
+
+                Waiting for GPS...
+
+            </div>
+
+        </div>
+
+
+        <div id="map"></div>
+
+
+        <div class="button-row">
+
+            <button
+                class="primary-btn"
+                onclick="centerOnDevice()">
+
+                Center on Device
+
+            </button>
+
+
+            <button
+                class="secondary-btn"
+                onclick="clearPath()">
+
+                Clear Path
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         GPS + DEVICE
+    ====================================================== -->
 
     <div class="grid">
 
+        <!-- GPS PANEL -->
+
         <div class="panel">
 
-            <h3>GPS Information</h3>
+            <h3>
+                GPS Information
+            </h3>
+
 
             <div class="info-row">
-                <span class="label">Latitude</span>
-                <span id="latitude" class="value">--</span>
+
+                <span class="label">
+                    Latitude
+                </span>
+
+                <span
+                    id="latitude"
+                    class="value">
+
+                    --
+
+                </span>
+
             </div>
+
 
             <div class="info-row">
-                <span class="label">Longitude</span>
-                <span id="longitude" class="value">--</span>
+
+                <span class="label">
+                    Longitude
+                </span>
+
+                <span
+                    id="longitude"
+                    class="value">
+
+                    --
+
+                </span>
+
             </div>
+
 
             <div class="info-row">
-                <span class="label">Satellites</span>
-                <span id="gpsSatellites" class="value">--</span>
+
+                <span class="label">
+                    Satellites
+                </span>
+
+                <span
+                    id="gpsSatellites"
+                    class="value">
+
+                    --
+
+                </span>
+
             </div>
+
 
             <div class="info-row">
-                <span class="label">HDOP</span>
-                <span id="hdop" class="value">--</span>
+
+                <span class="label">
+                    HDOP
+                </span>
+
+                <span
+                    id="hdop"
+                    class="value">
+
+                    --
+
+                </span>
+
             </div>
+
 
             <div class="info-row">
-                <span class="label">GPS Update</span>
-                <span id="gpsTime" class="value">--</span>
-            </div>
 
-            <a
-                id="mapButton"
-                class="map-btn"
-                href="#"
-                target="_blank"
-            >
-                Open Location in Google Maps
-            </a>
+                <span class="label">
+                    Last GPS Update
+                </span>
+
+                <span
+                    id="gpsTime"
+                    class="value">
+
+                    --
+
+                </span>
+
+            </div>
 
         </div>
 
+
+        <!-- DEVICE PANEL -->
+
         <div class="panel">
 
-            <h3>Device Information</h3>
+            <h3>
+                Device Information
+            </h3>
+
 
             <div class="info-row">
-                <span class="label">Device ID</span>
-                <span id="deviceId" class="value">--</span>
-            </div>
 
-            <div class="info-row">
-                <span class="label">MQTT Status</span>
-                <span id="mqttStatus" class="value offline">
-                    Disconnected
+                <span class="label">
+                    Device ID
                 </span>
+
+                <span
+                    id="deviceId"
+                    class="value">
+
+                    --
+
+                </span>
+
             </div>
 
-            <div class="info-row">
-                <span class="label">Last Message</span>
-                <span id="lastMessage" class="value">--</span>
-            </div>
 
             <div class="info-row">
-                <span class="label">Last Detection</span>
-                <span id="lastDetection" class="value">--</span>
+
+                <span class="label">
+                    MQTT
+                </span>
+
+                <span
+                    id="mqttStatus"
+                    class="value offline">
+
+                    Disconnected
+
+                </span>
+
             </div>
 
+
             <div class="info-row">
-                <span class="label">Dashboard</span>
-                <span class="value online">ONLINE</span>
+
+                <span class="label">
+                    Last MQTT Message
+                </span>
+
+                <span
+                    id="lastMessage"
+                    class="value">
+
+                    --
+
+                </span>
+
+            </div>
+
+
+            <div class="info-row">
+
+                <span class="label">
+                    Last Tree Detection
+                </span>
+
+                <span
+                    id="lastDetection"
+                    class="value">
+
+                    --
+
+                </span>
+
             </div>
 
         </div>
 
     </div>
 
-    <!-- MQTT LOG -->
+
+    <!-- =====================================================
+         MQTT LOG
+    ====================================================== -->
 
     <div class="panel">
 
-        <h3>MQTT Live Messages</h3>
+        <h3>
+            MQTT Live Messages
+        </h3>
 
-        <div id="logs" class="logs">
+        <div
+            id="logs"
+            class="logs">
+
             <div class="log-line">
                 Dashboard starting...
             </div>
+
         </div>
 
     </div>
 
 </div>
 
+
 <footer>
-    Mechtrobotics Pvt Ltd | AI + IoT Tree Detection
+
+    Mechtrobotics Pvt Ltd |
+    AI + IoT Tree Detection System
+
 </footer>
 
 
 <script>
 
-    /*
-    ============================================================
-    HIVEMQ CLOUD CONFIGURATION
-    ============================================================
-    */
-
-    const MQTT_HOST =
-        "9e3ed49b452c4e20bf321f93db6bb743.s1.eu.hivemq.cloud";
-
-    /*
-    HiveMQ Cloud MQTT over WebSocket uses port 8884.
-    */
-
-    const MQTT_PORT = 8884;
-
-    /*
-    Secure WebSocket connection
-    */
-
-    const MQTT_URL =
-        "wss://" + MQTT_HOST + ":" + MQTT_PORT + "/mqtt";
+/*
+===============================================================
+                    HIVEMQ CONFIGURATION
+===============================================================
+*/
 
 
-    /*
-    IMPORTANT:
-    Do NOT put your main HiveMQ password in a public GitHub repo.
-
-    Create a separate MQTT credential for this dashboard.
-    */
-
-    const MQTT_USERNAME = "pothole1";
-    const MQTT_PASSWORD = "12345678";
+const MQTT_HOST =
+    "9e3ed49b452c4e20bf321f93db6bb743.s1.eu.hivemq.cloud";
 
 
-    /*
-    ============================================================
-    MQTT TOPICS
-    ============================================================
-    */
-
-    const TREE_TOPIC = "tree/detections";
-    const DEVICE_TOPIC = "pothole/device";
+const MQTT_PORT =
+    8884;
 
 
-    /*
-    ============================================================
-    GLOBAL VARIABLES
-    ============================================================
-    */
-
-    let client = null;
-
-    let currentLatitude = null;
-    let currentLongitude = null;
-
-    let totalTrees = 0;
+const MQTT_URL =
+    "wss://" +
+    MQTT_HOST +
+    ":" +
+    MQTT_PORT +
+    "/mqtt";
 
 
-    /*
-    ============================================================
-    DOM ELEMENTS
-    ============================================================
-    */
+/*
+IMPORTANT:
 
-    const statusDot =
-        document.getElementById("statusDot");
+Create a separate HiveMQ username/password
+for the web dashboard.
 
-    const connectionText =
-        document.getElementById("connectionText");
-
-    const mqttStatus =
-        document.getElementById("mqttStatus");
-
-    const treeCount =
-        document.getElementById("treeCount");
-
-    const gpsStatus =
-        document.getElementById("gpsStatus");
-
-    const satellites =
-        document.getElementById("satellites");
-
-    const gpsSatellites =
-        document.getElementById("gpsSatellites");
-
-    const latitude =
-        document.getElementById("latitude");
-
-    const longitude =
-        document.getElementById("longitude");
-
-    const hdop =
-        document.getElementById("hdop");
-
-    const gpsTime =
-        document.getElementById("gpsTime");
-
-    const deviceStatus =
-        document.getElementById("deviceStatus");
-
-    const deviceId =
-        document.getElementById("deviceId");
-
-    const lastMessage =
-        document.getElementById("lastMessage");
-
-    const lastDetection =
-        document.getElementById("lastDetection");
-
-    const logs =
-        document.getElementById("logs");
-
-    const mapButton =
-        document.getElementById("mapButton");
+Do NOT use your main Raspberry Pi credential
+in a public GitHub repository.
+*/
 
 
-    /*
-    ============================================================
-    LOG FUNCTION
-    ============================================================
-    */
+const MQTT_USERNAME =
+    "pothole1";
 
-    function addLog(message) {
 
-        const line =
-            document.createElement("div");
+const MQTT_PASSWORD =
+    "12345678";
 
-        line.className = "log-line";
 
-        const time =
-            new Date().toLocaleTimeString();
+/*
+===============================================================
+                    MQTT TOPICS
+===============================================================
+*/
 
-        line.textContent =
-            "[" + time + "] " + message;
 
-        logs.prepend(line);
+const TREE_TOPIC =
+    "tree/detections";
 
-        while (logs.children.length > 100) {
-            logs.removeChild(logs.lastChild);
-        }
+
+const DEVICE_TOPIC =
+    "pothole/device";
+
+
+/*
+===============================================================
+                    VARIABLES
+===============================================================
+*/
+
+
+let client = null;
+
+let currentLatitude = null;
+
+let currentLongitude = null;
+
+let currentMarker = null;
+
+let pathLine = null;
+
+let pathCoordinates = [];
+
+let firstGPSFix = true;
+
+let totalTrees = 0;
+
+
+/*
+===============================================================
+                    INITIALIZE LEAFLET MAP
+===============================================================
+*/
+
+
+const map =
+    L.map("map").setView(
+        [10.8919, 78.7258],
+        15
+    );
+
+
+/*
+OpenStreetMap tiles
+*/
+
+
+L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+        maxZoom: 19,
+
+        attribution:
+            '&copy; OpenStreetMap contributors'
+    }
+).addTo(map);
+
+
+/*
+===============================================================
+                    DEVICE ICON
+===============================================================
+*/
+
+
+const deviceIcon =
+    L.divIcon({
+
+        className:
+            "device-marker",
+
+        html:
+            `
+            <div style="
+                width:20px;
+                height:20px;
+                background:#175cd3;
+                border:4px solid white;
+                border-radius:50%;
+                box-shadow:0 0 10px rgba(0,0,0,0.5);
+            "></div>
+            `,
+
+        iconSize:
+            [20,20],
+
+        iconAnchor:
+            [10,10]
+
+    });
+
+
+/*
+===============================================================
+                    DOM ELEMENTS
+===============================================================
+*/
+
+
+const statusDot =
+    document.getElementById(
+        "statusDot"
+    );
+
+
+const connectionText =
+    document.getElementById(
+        "connectionText"
+    );
+
+
+const mqttStatus =
+    document.getElementById(
+        "mqttStatus"
+    );
+
+
+const treeCount =
+    document.getElementById(
+        "treeCount"
+    );
+
+
+const gpsStatus =
+    document.getElementById(
+        "gpsStatus"
+    );
+
+
+const satellites =
+    document.getElementById(
+        "satellites"
+    );
+
+
+const hdopCard =
+    document.getElementById(
+        "hdopCard"
+    );
+
+
+const latitude =
+    document.getElementById(
+        "latitude"
+    );
+
+
+const longitude =
+    document.getElementById(
+        "longitude"
+    );
+
+
+const gpsSatellites =
+    document.getElementById(
+        "gpsSatellites"
+    );
+
+
+const hdop =
+    document.getElementById(
+        "hdop"
+    );
+
+
+const gpsTime =
+    document.getElementById(
+        "gpsTime"
+    );
+
+
+const deviceStatus =
+    document.getElementById(
+        "deviceStatus"
+    );
+
+
+const deviceId =
+    document.getElementById(
+        "deviceId"
+    );
+
+
+const lastMessage =
+    document.getElementById(
+        "lastMessage"
+    );
+
+
+const lastDetection =
+    document.getElementById(
+        "lastDetection"
+    );
+
+
+const logs =
+    document.getElementById(
+        "logs"
+    );
+
+
+const mapStatus =
+    document.getElementById(
+        "mapStatus"
+    );
+
+
+/*
+===============================================================
+                    LOG
+===============================================================
+*/
+
+
+function addLog(message) {
+
+    const line =
+        document.createElement(
+            "div"
+        );
+
+    line.className =
+        "log-line";
+
+
+    const time =
+        new Date()
+        .toLocaleTimeString();
+
+
+    line.textContent =
+        "[" +
+        time +
+        "] " +
+        message;
+
+
+    logs.prepend(line);
+
+
+    while (
+        logs.children.length > 100
+    ) {
+
+        logs.removeChild(
+            logs.lastChild
+        );
+
     }
 
-
-    /*
-    ============================================================
-    CONNECTION STATUS
-    ============================================================
-    */
-
-    function setConnected() {
-
-        statusDot.classList.add("connected");
-
-        connectionText.textContent =
-            "HiveMQ Connected";
-
-        mqttStatus.textContent =
-            "Connected";
-
-        mqttStatus.className =
-            "value online";
-    }
+}
 
 
-    function setDisconnected() {
-
-        statusDot.classList.remove("connected");
-
-        connectionText.textContent =
-            "Disconnected";
-
-        mqttStatus.textContent =
-            "Disconnected";
-
-        mqttStatus.className =
-            "value offline";
-    }
+/*
+===============================================================
+                    MQTT STATUS
+===============================================================
+*/
 
 
-    /*
-    ============================================================
-    CONNECT TO HIVEMQ
-    ============================================================
-    */
+function setConnected() {
 
-    function connectMQTT() {
+    statusDot.classList.add(
+        "connected"
+    );
 
-        addLog("Connecting to HiveMQ Cloud...");
 
-        client = mqtt.connect(
+    connectionText.textContent =
+        "HiveMQ Connected";
+
+
+    mqttStatus.textContent =
+        "Connected";
+
+
+    mqttStatus.className =
+        "value online";
+
+
+    deviceStatus.textContent =
+        "ONLINE";
+
+
+    deviceStatus.className =
+        "card-value online";
+
+}
+
+
+function setDisconnected() {
+
+    statusDot.classList.remove(
+        "connected"
+    );
+
+
+    connectionText.textContent =
+        "Disconnected";
+
+
+    mqttStatus.textContent =
+        "Disconnected";
+
+
+    mqttStatus.className =
+        "value offline";
+
+}
+
+
+/*
+===============================================================
+                    CONNECT MQTT
+===============================================================
+*/
+
+
+function connectMQTT() {
+
+    addLog(
+        "Connecting to HiveMQ..."
+    );
+
+
+    client =
+        mqtt.connect(
             MQTT_URL,
             {
-                username: MQTT_USERNAME,
-                password: MQTT_PASSWORD,
+
+                username:
+                    MQTT_USERNAME,
+
+                password:
+                    MQTT_PASSWORD,
 
                 clientId:
                     "tree_dashboard_" +
                     Math.random()
-                        .toString(16)
-                        .substring(2),
+                    .toString(16)
+                    .substring(2),
 
-                clean: true,
+                clean:
+                    true,
 
-                reconnectPeriod: 5000,
+                reconnectPeriod:
+                    5000,
 
-                connectTimeout: 10000,
+                connectTimeout:
+                    10000,
 
-                keepalive: 60
+                keepalive:
+                    60
+
             }
         );
 
 
-        /*
-        CONNECTED
-        */
+    /*
+    CONNECT
+    */
 
-        client.on("connect", function () {
+
+    client.on(
+        "connect",
+        function() {
 
             setConnected();
 
+
             addLog(
-                "Connected to HiveMQ Cloud"
+                "HiveMQ connected"
             );
 
 
             /*
-            Subscribe to tree detections
+            TREE TOPIC
             */
 
             client.subscribe(
                 TREE_TOPIC,
-                { qos: 0 },
-                function (error) {
+                function(error) {
 
                     if (error) {
 
                         addLog(
-                            "Tree topic subscription failed"
+                            "Tree subscription error"
                         );
 
                     } else {
@@ -674,18 +1340,17 @@
 
 
             /*
-            Subscribe to GPS/device data
+            DEVICE TOPIC
             */
 
             client.subscribe(
                 DEVICE_TOPIC,
-                { qos: 0 },
-                function (error) {
+                function(error) {
 
                     if (error) {
 
                         addLog(
-                            "Device topic subscription failed"
+                            "Device subscription error"
                         );
 
                     } else {
@@ -700,239 +1365,178 @@
                 }
             );
 
-        });
-
-
-        /*
-        MQTT MESSAGE
-        */
-
-        client.on(
-            "message",
-            function (topic, message) {
-
-                const text =
-                    message.toString();
-
-                addLog(
-                    topic + " → " + text
-                );
-
-                lastMessage.textContent =
-                    new Date().toLocaleTimeString();
-
-
-                /*
-                Try JSON parsing
-                */
-
-                let data;
-
-                try {
-
-                    data = JSON.parse(text);
-
-                } catch (error) {
-
-                    /*
-                    If the message is not JSON,
-                    just display it in logs.
-                    */
-
-                    return;
-                }
-
-
-                /*
-                TREE DETECTION
-                */
-
-                if (
-                    topic === TREE_TOPIC
-                ) {
-
-                    processTreeData(data);
-
-                }
-
-
-                /*
-                GPS / DEVICE
-                */
-
-                if (
-                    topic === DEVICE_TOPIC
-                ) {
-
-                    processDeviceData(data);
-
-                }
-
-            }
-        );
-
-
-        /*
-        ERROR
-        */
-
-        client.on(
-            "error",
-            function (error) {
-
-                addLog(
-                    "MQTT Error: " +
-                    error.message
-                );
-
-                setDisconnected();
-
-            }
-        );
-
-
-        /*
-        OFFLINE
-        */
-
-        client.on(
-            "offline",
-            function () {
-
-                addLog(
-                    "MQTT client offline"
-                );
-
-                setDisconnected();
-
-            }
-        );
-
-
-        /*
-        RECONNECTING
-        */
-
-        client.on(
-            "reconnect",
-            function () {
-
-                addLog(
-                    "Attempting MQTT reconnect..."
-                );
-
-                connectionText.textContent =
-                    "Reconnecting...";
-
-            }
-        );
-
-    }
+        }
+    );
 
 
     /*
-    ============================================================
-    PROCESS TREE DATA
-    ============================================================
+    MESSAGE
     */
 
-    function processTreeData(data) {
 
-        /*
-        Support several possible field names.
-        */
+    client.on(
+        "message",
+        function(topic, message) {
 
-        let count =
-            data.tree_count ??
-            data.trees ??
-            data.count ??
-            data.detected_count;
+            const text =
+                message.toString();
+
+
+            addLog(
+                topic +
+                " → " +
+                text
+            );
+
+
+            lastMessage.textContent =
+                new Date()
+                .toLocaleTimeString();
+
+
+            let data;
+
+
+            try {
+
+                data =
+                    JSON.parse(
+                        text
+                    );
+
+            } catch(error) {
+
+                return;
+
+            }
+
+
+            /*
+            TREE DATA
+            */
+
+            if (
+                topic === TREE_TOPIC
+            ) {
+
+                processTreeData(
+                    data
+                );
+
+            }
+
+
+            /*
+            DEVICE/GPS DATA
+            */
+
+            if (
+                topic === DEVICE_TOPIC
+            ) {
+
+                processDeviceData(
+                    data
+                );
+
+            }
+
+        }
+    );
+
+
+    /*
+    ERROR
+    */
+
+    client.on(
+        "error",
+        function(error) {
+
+            addLog(
+                "MQTT Error: " +
+                error.message
+            );
+
+            setDisconnected();
+
+        }
+    );
+
+
+    /*
+    OFFLINE
+    */
+
+    client.on(
+        "offline",
+        function() {
+
+            addLog(
+                "MQTT offline"
+            );
+
+            setDisconnected();
+
+        }
+    );
+
+
+    /*
+    RECONNECT
+    */
+
+    client.on(
+        "reconnect",
+        function() {
+
+            addLog(
+                "MQTT reconnecting..."
+            );
+
+            connectionText.textContent =
+                "Reconnecting...";
+
+        }
+    );
+
+}
+
+
+/*
+===============================================================
+                    TREE DATA
+===============================================================
+*/
+
+
+function processTreeData(data) {
+
+    const count =
+        data.tree_count ??
+        data.trees ??
+        data.count ??
+        data.detected_count;
+
+
+    if (
+        count !== undefined &&
+        count !== null
+    ) {
+
+        const number =
+            Number(count);
 
 
         if (
-            count !== undefined &&
-            count !== null
+            !Number.isNaN(number)
         ) {
 
             totalTrees =
-                Number(count);
-
-            if (
-                !Number.isNaN(totalTrees)
-            ) {
-
-                treeCount.textContent =
-                    totalTrees;
-
-            }
-
-        }
+                number;
 
 
-        /*
-        If your Python program sends
-        latitude/longitude with detection,
-        update GPS too.
-        */
-
-        if (
-            data.latitude !== undefined &&
-            data.longitude !== undefined
-        ) {
-
-            updateGPS(
-                data.latitude,
-                data.longitude,
-                data.satellites,
-                data.hdop
-            );
-
-        }
-
-
-        lastDetection.textContent =
-            new Date().toLocaleTimeString();
-
-    }
-
-
-    /*
-    ============================================================
-    PROCESS DEVICE DATA
-    ============================================================
-    */
-
-    function processDeviceData(data) {
-
-        /*
-        Device ID
-        */
-
-        if (
-            data.device_id !== undefined
-        ) {
-
-            deviceId.textContent =
-                data.device_id;
-
-        }
-
-
-        /*
-        GPS
-        */
-
-        if (
-            data.latitude !== undefined &&
-            data.longitude !== undefined
-        ) {
-
-            updateGPS(
-                data.latitude,
-                data.longitude,
-                data.satellites,
-                data.hdop
-            );
+            treeCount.textContent =
+                totalTrees;
 
         }
 
@@ -940,139 +1544,468 @@
 
 
     /*
-    ============================================================
-    UPDATE GPS
-    ============================================================
+    GPS may also be included
+    in tree detection message.
     */
 
-    function updateGPS(
-        lat,
-        lon,
-        sat,
-        hdopValue
+
+    if (
+        data.latitude !== undefined &&
+        data.longitude !== undefined
     ) {
 
-        const latNumber =
-            Number(lat);
+        updateGPS(
+            data.latitude,
+            data.longitude,
+            data.satellites,
+            data.hdop
+        );
 
-        const lonNumber =
-            Number(lon);
+    }
+
+
+    lastDetection.textContent =
+        new Date()
+        .toLocaleTimeString();
+
+}
+
+
+/*
+===============================================================
+                    DEVICE DATA
+===============================================================
+*/
+
+
+function processDeviceData(data) {
+
+    if (
+        data.device_id !== undefined
+    ) {
+
+        deviceId.textContent =
+            data.device_id;
+
+    }
+
+
+    if (
+        data.latitude !== undefined &&
+        data.longitude !== undefined
+    ) {
+
+        updateGPS(
+            data.latitude,
+            data.longitude,
+            data.satellites,
+            data.hdop
+        );
+
+    }
+
+}
+
+
+/*
+===============================================================
+                    LIVE GPS
+===============================================================
+*/
+
+
+function updateGPS(
+    lat,
+    lon,
+    sat,
+    hdopValue
+) {
+
+    const latNumber =
+        Number(lat);
+
+
+    const lonNumber =
+        Number(lon);
+
+
+    /*
+    Validate GPS
+    */
+
+    if (
+        Number.isNaN(latNumber) ||
+        Number.isNaN(lonNumber)
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        latNumber === 0 &&
+        lonNumber === 0
+    ) {
+
+        return;
+
+    }
+
+
+    currentLatitude =
+        latNumber;
+
+
+    currentLongitude =
+        lonNumber;
+
+
+    /*
+    Update information
+    */
+
+    latitude.textContent =
+        latNumber.toFixed(6);
+
+
+    longitude.textContent =
+        lonNumber.toFixed(6);
+
+
+    /*
+    Satellites
+    */
+
+    if (
+        sat !== undefined &&
+        sat !== null
+    ) {
+
+        satellites.textContent =
+            sat;
+
+
+        gpsSatellites.textContent =
+            sat;
+
+    }
+
+
+    /*
+    HDOP
+    */
+
+    if (
+        hdopValue !== undefined &&
+        hdopValue !== null
+    ) {
+
+        const hdopNumber =
+            Number(hdopValue);
 
 
         if (
-            Number.isNaN(latNumber) ||
-            Number.isNaN(lonNumber)
-        ) {
-
-            return;
-
-        }
-
-
-        currentLatitude =
-            latNumber;
-
-        currentLongitude =
-            lonNumber;
-
-
-        latitude.textContent =
-            latNumber.toFixed(6);
-
-        longitude.textContent =
-            lonNumber.toFixed(6);
-
-
-        /*
-        Satellites
-        */
-
-        if (
-            sat !== undefined &&
-            sat !== null
-        ) {
-
-            satellites.textContent =
-                sat;
-
-            gpsSatellites.textContent =
-                sat;
-
-        }
-
-
-        /*
-        HDOP
-        */
-
-        if (
-            hdopValue !== undefined &&
-            hdopValue !== null
+            !Number.isNaN(hdopNumber)
         ) {
 
             hdop.textContent =
-                Number(hdopValue).toFixed(2);
+                hdopNumber.toFixed(2);
+
+
+            hdopCard.textContent =
+                hdopNumber.toFixed(2);
 
         }
-
-
-        /*
-        GPS FIX
-        */
-
-        gpsStatus.textContent =
-            "FIX";
-
-        gpsStatus.className =
-            "card-value online";
-
-
-        gpsTime.textContent =
-            new Date().toLocaleTimeString();
-
-
-        /*
-        Google Maps
-        */
-
-        mapButton.href =
-            "https://www.google.com/maps?q=" +
-            latNumber +
-            "," +
-            lonNumber;
 
     }
 
 
     /*
-    ============================================================
-    START
-    ============================================================
+    GPS STATUS
     */
 
-    addLog(
-        "Tree Detection Dashboard loaded"
-    );
+    gpsStatus.textContent =
+        "FIX";
 
-    addLog(
-        "MQTT broker: " + MQTT_HOST
-    );
 
-    addLog(
-        "Tree topic: " + TREE_TOPIC
-    );
+    gpsStatus.className =
+        "card-value online";
 
-    addLog(
-        "Device topic: " + DEVICE_TOPIC
+
+    gpsTime.textContent =
+        new Date()
+        .toLocaleTimeString();
+
+
+    mapStatus.textContent =
+        "Live GPS: " +
+        latNumber.toFixed(6) +
+        ", " +
+        lonNumber.toFixed(6);
+
+
+    /*
+    ===========================================================
+                    LEAFLET MARKER
+    ===========================================================
+    */
+
+
+    const position =
+        [
+            latNumber,
+            lonNumber
+        ];
+
+
+    /*
+    Create marker first time
+    */
+
+    if (
+        currentMarker === null
+    ) {
+
+        currentMarker =
+            L.marker(
+                position,
+                {
+                    icon:
+                        deviceIcon
+                }
+            ).addTo(map);
+
+
+        currentMarker.bindPopup(
+            `
+            <b>Mechtrobotics Device</b>
+            <br>
+            Latitude:
+            ${latNumber.toFixed(6)}
+            <br>
+            Longitude:
+            ${lonNumber.toFixed(6)}
+            <br>
+            Satellites:
+            ${sat ?? "--"}
+            <br>
+            HDOP:
+            ${hdopValue ?? "--"}
+            `
+        );
+
+
+        /*
+        First GPS fix
+        */
+
+        map.setView(
+            position,
+            17
+        );
+
+
+        firstGPSFix =
+            false;
+
+    } else {
+
+        /*
+        Move marker
+        */
+
+        currentMarker.setLatLng(
+            position
+        );
+
+
+        /*
+        Update popup
+        */
+
+        currentMarker.setPopupContent(
+            `
+            <b>Mechtrobotics Device</b>
+            <br>
+            Latitude:
+            ${latNumber.toFixed(6)}
+            <br>
+            Longitude:
+            ${lonNumber.toFixed(6)}
+            <br>
+            Satellites:
+            ${sat ?? "--"}
+            <br>
+            HDOP:
+            ${hdopValue ?? "--"}
+            `
+        );
+
+    }
+
+
+    /*
+    ===========================================================
+                    PATH TRACKING
+    ===========================================================
+    */
+
+
+    pathCoordinates.push(
+        position
     );
 
 
     /*
-    Connect
+    Limit path points
     */
 
-    connectMQTT();
+    if (
+        pathCoordinates.length > 1000
+    ) {
 
+        pathCoordinates.shift();
+
+    }
+
+
+    /*
+    Remove old line
+    */
+
+    if (
+        pathLine !== null
+    ) {
+
+        map.removeLayer(
+            pathLine
+        );
+
+    }
+
+
+    /*
+    Draw live path
+    */
+
+    pathLine =
+        L.polyline(
+            pathCoordinates,
+            {
+                weight: 4
+            }
+        ).addTo(map);
+
+}
+
+
+/*
+===============================================================
+                    CENTER DEVICE
+===============================================================
+*/
+
+
+function centerOnDevice() {
+
+    if (
+        currentLatitude === null ||
+        currentLongitude === null
+    ) {
+
+        alert(
+            "GPS location is not available yet."
+        );
+
+        return;
+
+    }
+
+
+    map.setView(
+        [
+            currentLatitude,
+            currentLongitude
+        ],
+        18
+    );
+
+
+    if (
+        currentMarker !== null
+    ) {
+
+        currentMarker.openPopup();
+
+    }
+
+}
+
+
+/*
+===============================================================
+                    CLEAR PATH
+===============================================================
+*/
+
+
+function clearPath() {
+
+    pathCoordinates = [];
+
+
+    if (
+        pathLine !== null
+    ) {
+
+        map.removeLayer(
+            pathLine
+        );
+
+
+        pathLine = null;
+
+    }
+
+
+    addLog(
+        "GPS path cleared"
+    );
+
+}
+
+
+/*
+===============================================================
+                    START DASHBOARD
+===============================================================
+*/
+
+
+addLog(
+    "Leaflet map initialized"
+);
+
+
+addLog(
+    "Tree topic: " +
+    TREE_TOPIC
+);
+
+
+addLog(
+    "GPS topic: " +
+    DEVICE_TOPIC
+);
+
+
+addLog(
+    "Connecting to HiveMQ..."
+);
+
+
+connectMQTT();
 
 </script>
 
