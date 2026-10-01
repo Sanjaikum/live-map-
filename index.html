@@ -1515,7 +1515,7 @@ function connectMQTT() {
 
 function processTreeData(data) {
 
-    console.log("TREE DATA RECEIVED:", data);
+    console.log("TREE MQTT RECEIVED:", data);
 
     const treeId =
         data.tree_id ||
@@ -1523,25 +1523,58 @@ function processTreeData(data) {
             data.id !== undefined ? data.id : Date.now()
         ));
 
-    if (
-        data.latitude === undefined ||
-        data.longitude === undefined
-    ) {
-        addLog("Tree received without GPS coordinates: " + treeId);
-        return;
-    }
+    /*
+    TREE MQTT MESSAGE IS ALSO A VALID GPS SOURCE.
+
+    The Raspberry Pi publishes gps_fix=true together with
+    latitude/longitude in the tree/detections message.
+    Therefore the dashboard must update GPS from this message
+    instead of depending only on pothole/device.
+    */
+
+    const gpsFix =
+        data.gps_fix === true ||
+        data.gps_fix === "true" ||
+        data.gps_fix === 1 ||
+        data.gps_fix === "1";
 
     const lat = Number(data.latitude);
     const lon = Number(data.longitude);
 
+    addLog(
+        "TREE GPS: fix=" + gpsFix +
+        " lat=" + data.latitude +
+        " lon=" + data.longitude
+    );
+
+    /*
+    If the tree message has no valid GPS fix, do not create
+    a map landmark. Existing landmarks are kept.
+    */
     if (
+        !gpsFix ||
         Number.isNaN(lat) ||
         Number.isNaN(lon) ||
         (lat === 0 && lon === 0)
     ) {
-        addLog("Invalid GPS coordinates for " + treeId);
+        addLog(
+            "Tree " + treeId +
+            " received but GPS has NO FIX - landmark not added"
+        );
         return;
     }
+
+    /*
+    IMPORTANT:
+    Update the dashboard GPS cards and live device marker
+    from the tree message itself.
+    */
+    updateGPS(
+        lat,
+        lon,
+        data.satellites,
+        data.hdop
+    );
 
     /*
     If this tree_id already exists, update its position/popup
@@ -1555,6 +1588,11 @@ function processTreeData(data) {
 
         existingMarker.setPopupContent(
             createTreePopup(data, treeId, lat, lon)
+        );
+
+        addLog(
+            "Tree landmark updated: " +
+            treeId
         );
 
         return;
@@ -1603,13 +1641,18 @@ function processTreeData(data) {
         new Date().toLocaleTimeString();
 
     addLog(
-        "Tree landmark added: " +
+        "TREE LANDMARK ADDED: " +
         treeId +
         " | " +
         lat.toFixed(6) +
         ", " +
         lon.toFixed(6)
     );
+
+    /*
+    Automatically open the newly detected tree landmark.
+    */
+    marker.openPopup();
 }
 
 
@@ -1716,8 +1759,22 @@ function processDeviceData(data) {
 
     }
 
+    /*
+    Device GPS messages may explicitly report NO FIX.
+    Do not delete existing tree landmarks when GPS is lost.
+    */
+    const gpsFix =
+        data.gps_fix === undefined
+            ? true
+            : (
+                data.gps_fix === true ||
+                data.gps_fix === "true" ||
+                data.gps_fix === 1 ||
+                data.gps_fix === "1"
+            );
 
     if (
+        gpsFix &&
         data.latitude !== undefined &&
         data.longitude !== undefined
     ) {
@@ -1728,6 +1785,15 @@ function processDeviceData(data) {
             data.satellites,
             data.hdop
         );
+
+    } else if (!gpsFix) {
+
+        gpsStatus.textContent = "NO FIX";
+        gpsStatus.className = "card-value offline";
+
+        mapStatus.textContent = "Waiting for GPS fix...";
+
+        addLog("Device GPS: NO FIX");
 
     }
 
@@ -2112,6 +2178,10 @@ function clearPath() {
 
 addLog(
     "Leaflet map initialized"
+);
+
+addLog(
+    "Tree GPS mode: tree/detections messages update GPS + landmarks"
 );
 
 
