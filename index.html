@@ -1262,41 +1262,75 @@ function setDisconnected() {
 function connectMQTT() {
 
     addLog(
-        "Connecting to HiveMQ..."
+        "MQTT: starting connection..."
     );
 
+    if (typeof mqtt === "undefined") {
 
-    client =
-        mqtt.connect(
-            MQTT_URL,
-            {
-
-                username:
-                    MQTT_USERNAME,
-
-                password:
-                    MQTT_PASSWORD,
-
-                clientId:
-                    "tree_dashboard_" +
-                    Math.random()
-                    .toString(16)
-                    .substring(2),
-
-                clean:
-                    true,
-
-                reconnectPeriod:
-                    5000,
-
-                connectTimeout:
-                    10000,
-
-                keepalive:
-                    60
-
-            }
+        addLog(
+            "MQTT ERROR: mqtt.js library did not load"
         );
+
+        connectionText.textContent =
+            "MQTT Library Error";
+
+        return;
+    }
+
+    addLog(
+        "MQTT URL: " + MQTT_URL
+    );
+
+    try {
+
+        client =
+            mqtt.connect(
+                MQTT_URL,
+                {
+
+                    username:
+                        MQTT_USERNAME,
+
+                    password:
+                        MQTT_PASSWORD,
+
+                    clientId:
+                        "tree_dashboard_" +
+                        Math.random()
+                        .toString(16)
+                        .substring(2),
+
+                    clean:
+                        true,
+
+                    reconnectPeriod:
+                        5000,
+
+                    connectTimeout:
+                        15000,
+
+                    keepalive:
+                        60,
+
+                    protocolVersion:
+                        4
+                }
+            );
+
+        addLog(
+            "MQTT client created - waiting for HiveMQ..."
+        );
+
+    } catch (error) {
+
+        addLog(
+            "MQTT CONNECT EXCEPTION: " +
+            error.message
+        );
+
+        setDisconnected();
+        return;
+    }
 
 
     /*
@@ -1410,6 +1444,11 @@ function connectMQTT() {
 
             } catch(error) {
 
+                addLog(
+                    "JSON ERROR: " +
+                    error.message
+                );
+
                 return;
 
             }
@@ -1449,12 +1488,60 @@ function connectMQTT() {
 
 
     /*
+    CLOSE
+    */
+
+    client.on(
+        "close",
+        function() {
+
+            addLog(
+                "MQTT socket closed"
+            );
+
+            setDisconnected();
+
+        }
+    );
+
+
+    /*
+    END
+    */
+
+    client.on(
+        "end",
+        function() {
+
+            addLog(
+                "MQTT client ended"
+            );
+
+            setDisconnected();
+
+        }
+    );
+
+
+    /*
     ERROR
     */
 
     client.on(
         "error",
         function(error) {
+
+            addLog(
+                "MQTT ERROR: " +
+                (error && error.message
+                    ? error.message
+                    : String(error))
+            );
+
+            setDisconnected();
+
+        }
+    );
 
             addLog(
                 "MQTT Error: " +
@@ -1748,6 +1835,8 @@ function createTreePopup(
 ===============================================================
                     DEVICE DATA
 ===============================================================
+*/
+
 function processDeviceData(data) {
 
     if (
@@ -2178,6 +2267,11 @@ function clearPath() {
 
 addLog(
     "Leaflet map initialized"
+);
+
+addLog(
+    "MQTT.js loaded: " +
+    (typeof mqtt !== "undefined" ? "YES" : "NO")
 );
 
 addLog(
