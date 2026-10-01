@@ -885,739 +885,205 @@
 
 <script>
 
-/*
-===============================================================
-                    HIVEMQ CONFIGURATION
-===============================================================
-*/
+<script>
+/* ===============================================================
+   MECHTROBOTICS TREE DASHBOARD - CLEAN MQTT CLIENT
+   =============================================================== */
 
+const MQTT_HOST = '9e3ed49b452c4e20bf321f93db6bb743.s1.eu.hivemq.cloud';
+const MQTT_PORT = 8884;
+const MQTT_URL = "wss://" + MQTT_HOST + ":" + MQTT_PORT + "/mqtt";
 
-const MQTT_HOST =
-    "9e3ed49b452c4e20bf321f93db6bb743.s1.eu.hivemq.cloud";
+const MQTT_USERNAME = 'pothole1';
+const MQTT_PASSWORD = '12345678';
 
-
-const MQTT_PORT =
-    8884;
-
-
-const MQTT_URL =
-    "wss://" +
-    MQTT_HOST +
-    ":" +
-    MQTT_PORT +
-    "/mqtt";
-
-
-/*
-IMPORTANT:
-
-Create a separate HiveMQ username/password
-for the web dashboard.
-
-Do NOT use your main Raspberry Pi credential
-in a public GitHub repository.
-*/
-
-
-const MQTT_USERNAME =
-    "pothole1";
-
-
-const MQTT_PASSWORD =
-    "12345678";
-
-
-/*
-===============================================================
-                    MQTT TOPICS
-===============================================================
-*/
-
-
-const TREE_TOPIC =
-    "tree/detections";
-
-
-const DEVICE_TOPIC =
-    "pothole/device";
-
-
-/*
-===============================================================
-                    VARIABLES
-===============================================================
-*/
-
+const TREE_TOPIC = "tree/detections";
+const DEVICE_TOPIC = "pothole/device";
 
 let client = null;
-
 let currentLatitude = null;
-
 let currentLongitude = null;
-
 let currentMarker = null;
-
 let pathLine = null;
-
 let pathCoordinates = [];
-
 let firstGPSFix = true;
+const treeMarkers = new Map();
 
-let totalTrees = 0;
+/* ================= MAP ================= */
 
-// Persistent tree landmarks.
-// Key = tree_id, Value = Leaflet marker.
-let treeMarkers = new Map();
-
-
-/*
-===============================================================
-                    INITIALIZE LEAFLET MAP
-===============================================================
-*/
-
-
-const map =
-    L.map("map").setView(
-        [10.8919, 78.7258],
-        15
-    );
-
-
-/*
-OpenStreetMap tiles
-*/
-
+const map = L.map("map").setView([10.8919, 78.7258], 15);
 
 L.tileLayer(
     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
         maxZoom: 19,
-
-        attribution:
-            '&copy; OpenStreetMap contributors'
+        attribution: "&copy; OpenStreetMap contributors"
     }
 ).addTo(map);
 
+const deviceIcon = L.divIcon({
+    className: "device-marker",
+    html: `<div style="
+        width:20px;height:20px;background:#175cd3;
+        border:4px solid white;border-radius:50%;
+        box-shadow:0 0 10px rgba(0,0,0,0.5);
+    "></div>`,
+    iconSize: [20,20],
+    iconAnchor: [10,10]
+});
 
-/*
-===============================================================
-                    DEVICE ICON
-===============================================================
-*/
+/* ================= DOM ================= */
 
+const statusDot = document.getElementById("statusDot");
+const connectionText = document.getElementById("connectionText");
+const mqttStatus = document.getElementById("mqttStatus");
+const treeCount = document.getElementById("treeCount");
+const gpsStatus = document.getElementById("gpsStatus");
+const satellites = document.getElementById("satellites");
+const hdopCard = document.getElementById("hdopCard");
+const latitude = document.getElementById("latitude");
+const longitude = document.getElementById("longitude");
+const gpsSatellites = document.getElementById("gpsSatellites");
+const hdop = document.getElementById("hdop");
+const gpsTime = document.getElementById("gpsTime");
+const deviceStatus = document.getElementById("deviceStatus");
+const deviceId = document.getElementById("deviceId");
+const lastMessage = document.getElementById("lastMessage");
+const lastDetection = document.getElementById("lastDetection");
+const logs = document.getElementById("logs");
+const mapStatus = document.getElementById("mapStatus");
 
-const deviceIcon =
-    L.divIcon({
-
-        className:
-            "device-marker",
-
-        html:
-            `
-            <div style="
-                width:20px;
-                height:20px;
-                background:#175cd3;
-                border:4px solid white;
-                border-radius:50%;
-                box-shadow:0 0 10px rgba(0,0,0,0.5);
-            "></div>
-            `,
-
-        iconSize:
-            [20,20],
-
-        iconAnchor:
-            [10,10]
-
-    });
-
-
-/*
-===============================================================
-                    DOM ELEMENTS
-===============================================================
-*/
-
-
-const statusDot =
-    document.getElementById(
-        "statusDot"
-    );
-
-
-const connectionText =
-    document.getElementById(
-        "connectionText"
-    );
-
-
-const mqttStatus =
-    document.getElementById(
-        "mqttStatus"
-    );
-
-
-const treeCount =
-    document.getElementById(
-        "treeCount"
-    );
-
-
-const gpsStatus =
-    document.getElementById(
-        "gpsStatus"
-    );
-
-
-const satellites =
-    document.getElementById(
-        "satellites"
-    );
-
-
-const hdopCard =
-    document.getElementById(
-        "hdopCard"
-    );
-
-
-const latitude =
-    document.getElementById(
-        "latitude"
-    );
-
-
-const longitude =
-    document.getElementById(
-        "longitude"
-    );
-
-
-const gpsSatellites =
-    document.getElementById(
-        "gpsSatellites"
-    );
-
-
-const hdop =
-    document.getElementById(
-        "hdop"
-    );
-
-
-const gpsTime =
-    document.getElementById(
-        "gpsTime"
-    );
-
-
-const deviceStatus =
-    document.getElementById(
-        "deviceStatus"
-    );
-
-
-const deviceId =
-    document.getElementById(
-        "deviceId"
-    );
-
-
-const lastMessage =
-    document.getElementById(
-        "lastMessage"
-    );
-
-
-const lastDetection =
-    document.getElementById(
-        "lastDetection"
-    );
-
-
-const logs =
-    document.getElementById(
-        "logs"
-    );
-
-
-const mapStatus =
-    document.getElementById(
-        "mapStatus"
-    );
-
-
-/*
-===============================================================
-                    LOG
-===============================================================
-*/
-
+/* ================= LOG ================= */
 
 function addLog(message) {
-
-    const line =
-        document.createElement(
-            "div"
-        );
-
-    line.className =
-        "log-line";
-
-
-    const time =
-        new Date()
-        .toLocaleTimeString();
-
-
-    line.textContent =
-        "[" +
-        time +
-        "] " +
-        message;
-
-
+    const line = document.createElement("div");
+    line.className = "log-line";
+    line.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
     logs.prepend(line);
 
-
-    while (
-        logs.children.length > 100
-    ) {
-
-        logs.removeChild(
-            logs.lastChild
-        );
-
+    while (logs.children.length > 100) {
+        logs.removeChild(logs.lastChild);
     }
 
+    console.log(message);
 }
 
-
-/*
-===============================================================
-                    MQTT STATUS
-===============================================================
-*/
-
+/* ================= STATUS ================= */
 
 function setConnected() {
-
-    statusDot.classList.add(
-        "connected"
-    );
-
-
-    connectionText.textContent =
-        "HiveMQ Connected";
-
-
-    mqttStatus.textContent =
-        "Connected";
-
-
-    mqttStatus.className =
-        "value online";
-
-
-    deviceStatus.textContent =
-        "ONLINE";
-
-
-    deviceStatus.className =
-        "card-value online";
-
+    statusDot.classList.add("connected");
+    connectionText.textContent = "HiveMQ Connected";
+    mqttStatus.textContent = "Connected";
+    mqttStatus.className = "value online";
+    deviceStatus.textContent = "ONLINE";
+    deviceStatus.className = "card-value online";
 }
 
-
-function setDisconnected() {
-
-    statusDot.classList.remove(
-        "connected"
-    );
-
-
-    connectionText.textContent =
-        "Disconnected";
-
-
-    mqttStatus.textContent =
-        "Disconnected";
-
-
-    mqttStatus.className =
-        "value offline";
-
+function setDisconnected(reason) {
+    statusDot.classList.remove("connected");
+    connectionText.textContent = "Disconnected";
+    mqttStatus.textContent = reason || "Disconnected";
+    mqttStatus.className = "value offline";
 }
 
+/* ================= GPS ================= */
 
-/*
-===============================================================
-                    CONNECT MQTT
-===============================================================
-*/
+function updateGPS(lat, lon, sat, hdopValue) {
+    const latNumber = Number(lat);
+    const lonNumber = Number(lon);
 
-
-function connectMQTT() {
-
-    addLog(
-        "MQTT: starting connection..."
-    );
-
-    if (typeof mqtt === "undefined") {
-
-        addLog(
-            "MQTT ERROR: mqtt.js library did not load"
-        );
-
-        connectionText.textContent =
-            "MQTT Library Error";
-
-        return;
+    if (!Number.isFinite(latNumber) || !Number.isFinite(lonNumber) ||
+        (latNumber === 0 && lonNumber === 0)) {
+        addLog("GPS coordinates invalid");
+        return false;
     }
 
-    addLog(
-        "MQTT URL: " + MQTT_URL
-    );
+    currentLatitude = latNumber;
+    currentLongitude = lonNumber;
 
-    try {
+    latitude.textContent = latNumber.toFixed(6);
+    longitude.textContent = lonNumber.toFixed(6);
 
-        client =
-            mqtt.connect(
-                MQTT_URL,
-                {
-
-                    username:
-                        MQTT_USERNAME,
-
-                    password:
-                        MQTT_PASSWORD,
-
-                    clientId:
-                        "tree_dashboard_" +
-                        Math.random()
-                        .toString(16)
-                        .substring(2),
-
-                    clean:
-                        true,
-
-                    reconnectPeriod:
-                        5000,
-
-                    connectTimeout:
-                        15000,
-
-                    keepalive:
-                        60,
-
-                    protocolVersion:
-                        4
-                }
-            );
-
-        addLog(
-            "MQTT client created - waiting for HiveMQ..."
-        );
-
-    } catch (error) {
-
-        addLog(
-            "MQTT CONNECT EXCEPTION: " +
-            error.message
-        );
-
-        setDisconnected();
-        return;
+    if (sat !== undefined && sat !== null) {
+        satellites.textContent = sat;
+        gpsSatellites.textContent = sat;
     }
 
-
-    /*
-    CONNECT
-    */
-
-
-    client.on(
-        "connect",
-        function() {
-
-            setConnected();
-
-
-            addLog(
-                "HiveMQ connected"
-            );
-
-
-            /*
-            TREE TOPIC
-            */
-
-            client.subscribe(
-                TREE_TOPIC,
-                function(error) {
-
-                    if (error) {
-
-                        addLog(
-                            "Tree subscription error"
-                        );
-
-                    } else {
-
-                        addLog(
-                            "Subscribed: " +
-                            TREE_TOPIC
-                        );
-
-                    }
-
-                }
-            );
-
-
-            /*
-            DEVICE TOPIC
-            */
-
-            client.subscribe(
-                DEVICE_TOPIC,
-                function(error) {
-
-                    if (error) {
-
-                        addLog(
-                            "Device subscription error"
-                        );
-
-                    } else {
-
-                        addLog(
-                            "Subscribed: " +
-                            DEVICE_TOPIC
-                        );
-
-                    }
-
-                }
-            );
-
+    if (hdopValue !== undefined && hdopValue !== null) {
+        const h = Number(hdopValue);
+        if (Number.isFinite(h)) {
+            hdop.textContent = h.toFixed(2);
+            hdopCard.textContent = h.toFixed(2);
         }
+    }
+
+    gpsStatus.textContent = "FIX";
+    gpsStatus.className = "card-value online";
+    gpsTime.textContent = new Date().toLocaleTimeString();
+
+    mapStatus.textContent =
+        "Live GPS: " + latNumber.toFixed(6) + ", " + lonNumber.toFixed(6);
+
+    const position = [latNumber, lonNumber];
+
+    if (currentMarker === null) {
+        currentMarker = L.marker(position, {icon: deviceIcon}).addTo(map);
+        map.setView(position, 17);
+        firstGPSFix = false;
+    } else {
+        currentMarker.setLatLng(position);
+    }
+
+    currentMarker.setPopupContent(
+        "<b>Mechtrobotics Device</b><br>" +
+        "Latitude: " + latNumber.toFixed(6) + "<br>" +
+        "Longitude: " + lonNumber.toFixed(6) + "<br>" +
+        "Satellites: " + (sat ?? "--") + "<br>" +
+        "HDOP: " + (hdopValue ?? "--")
     );
 
+    pathCoordinates.push(position);
+    if (pathCoordinates.length > 1000) pathCoordinates.shift();
 
-    /*
-    MESSAGE
-    */
+    if (pathLine !== null) map.removeLayer(pathLine);
+    pathLine = L.polyline(pathCoordinates, {weight: 4}).addTo(map);
 
-
-    client.on(
-        "message",
-        function(topic, message) {
-
-            const text =
-                message.toString();
-
-
-            addLog(
-                topic +
-                " → " +
-                text
-            );
-
-
-            lastMessage.textContent =
-                new Date()
-                .toLocaleTimeString();
-
-
-            let data;
-
-
-            try {
-
-                data =
-                    JSON.parse(
-                        text
-                    );
-
-            } catch(error) {
-
-                addLog(
-                    "JSON ERROR: " +
-                    error.message
-                );
-
-                return;
-
-            }
-
-
-            /*
-            TREE DATA
-            */
-
-            if (
-                topic === TREE_TOPIC
-            ) {
-
-                processTreeData(
-                    data
-                );
-
-            }
-
-
-            /*
-            DEVICE/GPS DATA
-            */
-
-            if (
-                topic === DEVICE_TOPIC
-            ) {
-
-                processDeviceData(
-                    data
-                );
-
-            }
-
-        }
-    );
-
-
-    /*
-    CLOSE
-    */
-
-    client.on(
-        "close",
-        function() {
-
-            addLog(
-                "MQTT socket closed"
-            );
-
-            setDisconnected();
-
-        }
-    );
-
-
-    /*
-    END
-    */
-
-    client.on(
-        "end",
-        function() {
-
-            addLog(
-                "MQTT client ended"
-            );
-
-            setDisconnected();
-
-        }
-    );
-
-
-    /*
-    ERROR
-    */
-
-    client.on(
-        "error",
-        function(error) {
-
-            addLog(
-                "MQTT ERROR: " +
-                (error && error.message
-                    ? error.message
-                    : String(error))
-            );
-
-            setDisconnected();
-
-        }
-    );
-
-            addLog(
-                "MQTT Error: " +
-                error.message
-            );
-
-            setDisconnected();
-
-        }
-    );
-
-
-    /*
-    OFFLINE
-    */
-
-    client.on(
-        "offline",
-        function() {
-
-            addLog(
-                "MQTT offline"
-            );
-
-            setDisconnected();
-
-        }
-    );
-
-
-    /*
-    RECONNECT
-    */
-
-    client.on(
-        "reconnect",
-        function() {
-
-            addLog(
-                "MQTT reconnecting..."
-            );
-
-            connectionText.textContent =
-                "Reconnecting...";
-
-        }
-    );
-
+    return true;
 }
 
+/* ================= TREE ================= */
 
-/*
-===============================================================
-                    TREE DATA
-===============================================================
-*/
+function treePopup(data, treeId, lat, lon) {
+    const fix =
+        data.gps_fix === true ||
+        data.gps_fix === "true" ||
+        data.gps_fix === 1 ||
+        data.gps_fix === "1";
 
+    return `
+        <div style="min-width:210px;font-family:Arial,Helvetica,sans-serif">
+            <div style="font-size:16px;font-weight:700;margin-bottom:10px">
+                Tree Landmark
+            </div>
+            <b>Tree ID:</b> ${treeId}<br>
+            <b>Device:</b> ${data.device_id ?? "--"}<hr>
+            <b>Latitude:</b> ${lat.toFixed(6)}<br>
+            <b>Longitude:</b> ${lon.toFixed(6)}<br>
+            <b>GPS Fix:</b> ${fix ? "YES" : "NO"}<br>
+            <b>Satellites:</b> ${data.satellites ?? "--"}<br>
+            <b>HDOP:</b> ${data.hdop ?? "--"}<br>
+            <b>Confidence:</b> ${data.confidence ?? "--"}%<br>
+            <b>Detected:</b> ${data.timestamp ?? "--"}
+        </div>
+    `;
+}
 
 function processTreeData(data) {
-
-    console.log("TREE MQTT RECEIVED:", data);
+    addLog("TREE MESSAGE RECEIVED");
 
     const treeId =
         data.tree_id ||
-        ("TREE_" + (
-            data.id !== undefined ? data.id : Date.now()
-        ));
-
-    /*
-    TREE MQTT MESSAGE IS ALSO A VALID GPS SOURCE.
-
-    The Raspberry Pi publishes gps_fix=true together with
-    latitude/longitude in the tree/detections message.
-    Therefore the dashboard must update GPS from this message
-    instead of depending only on pothole/device.
-    */
+        ("TREE_" + (data.id !== undefined ? data.id : Date.now()));
 
     const gpsFix =
         data.gps_fix === true ||
@@ -1634,672 +1100,205 @@ function processTreeData(data) {
         " lon=" + data.longitude
     );
 
-    /*
-    If the tree message has no valid GPS fix, do not create
-    a map landmark. Existing landmarks are kept.
-    */
-    if (
-        !gpsFix ||
-        Number.isNaN(lat) ||
-        Number.isNaN(lon) ||
-        (lat === 0 && lon === 0)
-    ) {
-        addLog(
-            "Tree " + treeId +
-            " received but GPS has NO FIX - landmark not added"
-        );
+    if (!gpsFix || !Number.isFinite(lat) || !Number.isFinite(lon) ||
+        (lat === 0 && lon === 0)) {
+        addLog("TREE " + treeId + ": NO GPS FIX - landmark skipped");
         return;
     }
 
-    /*
-    IMPORTANT:
-    Update the dashboard GPS cards and live device marker
-    from the tree message itself.
-    */
-    updateGPS(
-        lat,
-        lon,
-        data.satellites,
-        data.hdop
-    );
+    updateGPS(lat, lon, data.satellites, data.hdop);
 
-    /*
-    If this tree_id already exists, update its position/popup
-    instead of creating a duplicate landmark.
-    */
     if (treeMarkers.has(treeId)) {
-
-        const existingMarker = treeMarkers.get(treeId);
-
-        existingMarker.setLatLng([lat, lon]);
-
-        existingMarker.setPopupContent(
-            createTreePopup(data, treeId, lat, lon)
-        );
-
-        addLog(
-            "Tree landmark updated: " +
-            treeId
-        );
-
+        const marker = treeMarkers.get(treeId);
+        marker.setLatLng([lat, lon]);
+        marker.setPopupContent(treePopup(data, treeId, lat, lon));
+        addLog("TREE LANDMARK UPDATED: " + treeId);
         return;
     }
 
     const treeIcon = L.divIcon({
-
         className: "tree-landmark-icon",
-
-        html: `
-            <div style="
-                width:18px;
-                height:18px;
-                background:#12b76a;
-                border:3px solid white;
-                border-radius:50%;
-                box-shadow:0 0 8px rgba(0,0,0,0.55);
-            "></div>
-        `,
-
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
-        popupAnchor: [0, -9]
-
+        html: `<div style="
+            width:18px;height:18px;background:#12b76a;
+            border:3px solid white;border-radius:50%;
+            box-shadow:0 0 8px rgba(0,0,0,0.55);
+        "></div>`,
+        iconSize: [18,18],
+        iconAnchor: [9,9],
+        popupAnchor: [0,-9]
     });
 
-    const marker = L.marker(
-        [lat, lon],
-        { icon: treeIcon }
-    ).addTo(map);
+    const marker = L.marker([lat, lon], {icon: treeIcon}).addTo(map);
+    marker.bindPopup(treePopup(data, treeId, lat, lon));
 
-    marker.bindPopup(
-        createTreePopup(data, treeId, lat, lon)
-    );
-
-    treeMarkers.set(
-        treeId,
-        marker
-    );
-
-    totalTrees = treeMarkers.size;
-
-    treeCount.textContent = totalTrees;
-
-    lastDetection.textContent =
-        new Date().toLocaleTimeString();
+    treeMarkers.set(treeId, marker);
+    treeCount.textContent = treeMarkers.size;
+    lastDetection.textContent = new Date().toLocaleTimeString();
 
     addLog(
-        "TREE LANDMARK ADDED: " +
-        treeId +
-        " | " +
-        lat.toFixed(6) +
-        ", " +
-        lon.toFixed(6)
+        "TREE LANDMARK ADDED: " + treeId +
+        " | " + lat.toFixed(6) + ", " + lon.toFixed(6)
     );
 
-    /*
-    Automatically open the newly detected tree landmark.
-    */
     marker.openPopup();
 }
 
-
-/*
-===============================================================
-                    TREE POPUP
-===============================================================
-*/
-
-function createTreePopup(
-    data,
-    treeId,
-    lat,
-    lon
-) {
-
-    const gpsFix =
-        data.gps_fix === true ||
-        data.gps_fix === "true"
-            ? "YES"
-            : "NO";
-
-    return `
-        <div style="
-            min-width:210px;
-            font-family:Arial,Helvetica,sans-serif;
-        ">
-
-            <div style="
-                font-size:16px;
-                font-weight:700;
-                margin-bottom:10px;
-            ">
-                Tree Landmark
-            </div>
-
-            <div>
-                <b>Tree ID:</b> ${treeId}
-            </div>
-
-            <div>
-                <b>Device:</b> ${data.device_id ?? "--"}
-            </div>
-
-            <hr style="
-                margin:9px 0;
-                border:0;
-                border-top:1px solid #ddd;
-            ">
-
-            <div>
-                <b>Latitude:</b> ${lat.toFixed(6)}
-            </div>
-
-            <div>
-                <b>Longitude:</b> ${lon.toFixed(6)}
-            </div>
-
-            <div>
-                <b>GPS Fix:</b> ${gpsFix}
-            </div>
-
-            <div>
-                <b>Satellites:</b> ${data.satellites ?? "--"}
-            </div>
-
-            <div>
-                <b>HDOP:</b> ${data.hdop ?? "--"}
-            </div>
-
-            <div>
-                <b>Confidence:</b> ${data.confidence ?? "--"}%
-            </div>
-
-            <div>
-                <b>Image X:</b> ${data.image_x ?? "--"}
-            </div>
-
-            <div>
-                <b>Image Y:</b> ${data.image_y ?? "--"}
-            </div>
-
-            <div style="margin-top:7px;">
-                <b>Detected:</b> ${data.timestamp ?? "--"}
-            </div>
-
-        </div>
-    `;
-}
-
-
-/*
-===============================================================
-                    DEVICE DATA
-===============================================================
-*/
+/* ================= DEVICE ================= */
 
 function processDeviceData(data) {
-
-    if (
-        data.device_id !== undefined
-    ) {
-
-        deviceId.textContent =
-            data.device_id;
-
+    if (data.device_id !== undefined) {
+        deviceId.textContent = data.device_id;
     }
 
-    /*
-    Device GPS messages may explicitly report NO FIX.
-    Do not delete existing tree landmarks when GPS is lost.
-    */
     const gpsFix =
-        data.gps_fix === undefined
-            ? true
-            : (
-                data.gps_fix === true ||
-                data.gps_fix === "true" ||
-                data.gps_fix === 1 ||
-                data.gps_fix === "1"
-            );
+        data.gps_fix === undefined ||
+        data.gps_fix === true ||
+        data.gps_fix === "true" ||
+        data.gps_fix === 1 ||
+        data.gps_fix === "1";
 
-    if (
-        gpsFix &&
-        data.latitude !== undefined &&
-        data.longitude !== undefined
-    ) {
-
-        updateGPS(
-            data.latitude,
-            data.longitude,
-            data.satellites,
-            data.hdop
-        );
-
+    if (gpsFix && data.latitude !== undefined && data.longitude !== undefined) {
+        updateGPS(data.latitude, data.longitude, data.satellites, data.hdop);
     } else if (!gpsFix) {
-
         gpsStatus.textContent = "NO FIX";
         gpsStatus.className = "card-value offline";
-
         mapStatus.textContent = "Waiting for GPS fix...";
-
-        addLog("Device GPS: NO FIX");
-
     }
-
 }
 
+/* ================= MQTT ================= */
 
-/*
-===============================================================
-                    LIVE GPS
-===============================================================
-*/
+function connectMQTT() {
+    addLog("MQTT: starting connection");
+    addLog("MQTT URL: " + MQTT_URL);
 
-
-function updateGPS(
-    lat,
-    lon,
-    sat,
-    hdopValue
-) {
-
-    const latNumber =
-        Number(lat);
-
-
-    const lonNumber =
-        Number(lon);
-
-
-    /*
-    Validate GPS
-    */
-
-    if (
-        Number.isNaN(latNumber) ||
-        Number.isNaN(lonNumber)
-    ) {
-
+    if (typeof mqtt === "undefined") {
+        addLog("FATAL: mqtt.js was not loaded");
+        connectionText.textContent = "MQTT.js ERROR";
         return;
-
     }
 
-
-    if (
-        latNumber === 0 &&
-        lonNumber === 0
-    ) {
-
+    try {
+        client = mqtt.connect(MQTT_URL, {
+            username: MQTT_USERNAME,
+            password: MQTT_PASSWORD,
+            clientId:
+                "tree_dashboard_" +
+                Math.random().toString(16).substring(2),
+            clean: true,
+            reconnectPeriod: 5000,
+            connectTimeout: 15000,
+            keepalive: 60,
+            protocolVersion: 4
+        });
+    } catch (e) {
+        addLog("MQTT CREATE ERROR: " + e.message);
         return;
-
     }
 
+    client.on("connect", function() {
+        setConnected();
+        addLog("HIVEMQ CONNECTED");
 
-    currentLatitude =
-        latNumber;
+        client.subscribe(TREE_TOPIC, function(err) {
+            if (err) {
+                addLog("TREE SUBSCRIBE ERROR: " + err.message);
+            } else {
+                addLog("SUBSCRIBED: " + TREE_TOPIC);
+            }
+        });
 
+        client.subscribe(DEVICE_TOPIC, function(err) {
+            if (err) {
+                addLog("DEVICE SUBSCRIBE ERROR: " + err.message);
+            } else {
+                addLog("SUBSCRIBED: " + DEVICE_TOPIC);
+            }
+        });
+    });
 
-    currentLongitude =
-        lonNumber;
+    client.on("message", function(topic, message) {
+        const text = message.toString();
 
+        addLog("MESSAGE: " + topic);
 
-    /*
-    Update information
-    */
+        lastMessage.textContent = new Date().toLocaleTimeString();
 
-    latitude.textContent =
-        latNumber.toFixed(6);
-
-
-    longitude.textContent =
-        lonNumber.toFixed(6);
-
-
-    /*
-    Satellites
-    */
-
-    if (
-        sat !== undefined &&
-        sat !== null
-    ) {
-
-        satellites.textContent =
-            sat;
-
-
-        gpsSatellites.textContent =
-            sat;
-
-    }
-
-
-    /*
-    HDOP
-    */
-
-    if (
-        hdopValue !== undefined &&
-        hdopValue !== null
-    ) {
-
-        const hdopNumber =
-            Number(hdopValue);
-
-
-        if (
-            !Number.isNaN(hdopNumber)
-        ) {
-
-            hdop.textContent =
-                hdopNumber.toFixed(2);
-
-
-            hdopCard.textContent =
-                hdopNumber.toFixed(2);
-
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            addLog("JSON ERROR: " + e.message);
+            return;
         }
 
-    }
+        if (topic === TREE_TOPIC) {
+            processTreeData(data);
+        } else if (topic === DEVICE_TOPIC) {
+            processDeviceData(data);
+        } else {
+            addLog("UNKNOWN TOPIC: " + topic);
+        }
+    });
 
-
-    /*
-    GPS STATUS
-    */
-
-    gpsStatus.textContent =
-        "FIX";
-
-
-    gpsStatus.className =
-        "card-value online";
-
-
-    gpsTime.textContent =
-        new Date()
-        .toLocaleTimeString();
-
-
-    mapStatus.textContent =
-        "Live GPS: " +
-        latNumber.toFixed(6) +
-        ", " +
-        lonNumber.toFixed(6);
-
-
-    /*
-    ===========================================================
-                    LEAFLET MARKER
-    ===========================================================
-    */
-
-
-    const position =
-        [
-            latNumber,
-            lonNumber
-        ];
-
-
-    /*
-    Create marker first time
-    */
-
-    if (
-        currentMarker === null
-    ) {
-
-        currentMarker =
-            L.marker(
-                position,
-                {
-                    icon:
-                        deviceIcon
-                }
-            ).addTo(map);
-
-
-        currentMarker.bindPopup(
-            `
-            <b>Mechtrobotics Device</b>
-            <br>
-            Latitude:
-            ${latNumber.toFixed(6)}
-            <br>
-            Longitude:
-            ${lonNumber.toFixed(6)}
-            <br>
-            Satellites:
-            ${sat ?? "--"}
-            <br>
-            HDOP:
-            ${hdopValue ?? "--"}
-            `
+    client.on("error", function(error) {
+        addLog(
+            "MQTT ERROR: " +
+            (error && error.message ? error.message : String(error))
         );
+        setDisconnected("MQTT ERROR");
+    });
 
+    client.on("offline", function() {
+        addLog("MQTT OFFLINE");
+        setDisconnected("Offline");
+    });
 
-        /*
-        First GPS fix
-        */
+    client.on("close", function() {
+        addLog("MQTT SOCKET CLOSED");
+        setDisconnected("Disconnected");
+    });
 
-        map.setView(
-            position,
-            17
-        );
-
-
-        firstGPSFix =
-            false;
-
-    } else {
-
-        /*
-        Move marker
-        */
-
-        currentMarker.setLatLng(
-            position
-        );
-
-
-        /*
-        Update popup
-        */
-
-        currentMarker.setPopupContent(
-            `
-            <b>Mechtrobotics Device</b>
-            <br>
-            Latitude:
-            ${latNumber.toFixed(6)}
-            <br>
-            Longitude:
-            ${lonNumber.toFixed(6)}
-            <br>
-            Satellites:
-            ${sat ?? "--"}
-            <br>
-            HDOP:
-            ${hdopValue ?? "--"}
-            `
-        );
-
-    }
-
-
-    /*
-    ===========================================================
-                    PATH TRACKING
-    ===========================================================
-    */
-
-
-    pathCoordinates.push(
-        position
-    );
-
-
-    /*
-    Limit path points
-    */
-
-    if (
-        pathCoordinates.length > 1000
-    ) {
-
-        pathCoordinates.shift();
-
-    }
-
-
-    /*
-    Remove old line
-    */
-
-    if (
-        pathLine !== null
-    ) {
-
-        map.removeLayer(
-            pathLine
-        );
-
-    }
-
-
-    /*
-    Draw live path
-    */
-
-    pathLine =
-        L.polyline(
-            pathCoordinates,
-            {
-                weight: 4
-            }
-        ).addTo(map);
-
+    client.on("reconnect", function() {
+        addLog("MQTT RECONNECTING...");
+        connectionText.textContent = "Reconnecting...";
+    });
 }
 
-
-/*
-===============================================================
-                    CENTER DEVICE
-===============================================================
-*/
-
+/* ================= BUTTONS ================= */
 
 function centerOnDevice() {
-
-    if (
-        currentLatitude === null ||
-        currentLongitude === null
-    ) {
-
-        alert(
-            "GPS location is not available yet."
-        );
-
+    if (currentLatitude === null || currentLongitude === null) {
+        alert("GPS location is not available yet.");
         return;
-
     }
 
+    map.setView([currentLatitude, currentLongitude], 18);
 
-    map.setView(
-        [
-            currentLatitude,
-            currentLongitude
-        ],
-        18
-    );
-
-
-    if (
-        currentMarker !== null
-    ) {
-
-        currentMarker.openPopup();
-
-    }
-
+    if (currentMarker !== null) currentMarker.openPopup();
 }
-
-
-/*
-===============================================================
-                    CLEAR PATH
-===============================================================
-*/
-
 
 function clearPath() {
-
     pathCoordinates = [];
 
-
-    if (
-        pathLine !== null
-    ) {
-
-        map.removeLayer(
-            pathLine
-        );
-
-
+    if (pathLine !== null) {
+        map.removeLayer(pathLine);
         pathLine = null;
-
     }
 
-
-    addLog(
-        "GPS path cleared"
-    );
-
+    addLog("GPS path cleared");
 }
 
+/* ================= START ================= */
 
-/*
-===============================================================
-                    START DASHBOARD
-===============================================================
-*/
-
-
-addLog(
-    "Leaflet map initialized"
-);
-
-addLog(
-    "MQTT.js loaded: " +
-    (typeof mqtt !== "undefined" ? "YES" : "NO")
-);
-
-addLog(
-    "Tree GPS mode: tree/detections messages update GPS + landmarks"
-);
-
-
-addLog(
-    "Tree topic: " +
-    TREE_TOPIC
-);
-
-
-addLog(
-    "GPS topic: " +
-    DEVICE_TOPIC
-);
-
-
-addLog(
-    "Connecting to HiveMQ..."
-);
-
+addLog("Dashboard starting...");
+addLog("Leaflet map initialized");
+addLog("MQTT.js loaded: " + (typeof mqtt !== "undefined" ? "YES" : "NO"));
+addLog("Tree topic: " + TREE_TOPIC);
+addLog("Device topic: " + DEVICE_TOPIC);
 
 connectMQTT();
-
 </script>
 
 </body>
 </html>
-```
