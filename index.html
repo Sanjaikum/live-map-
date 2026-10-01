@@ -965,6 +965,10 @@ let firstGPSFix = true;
 
 let totalTrees = 0;
 
+// Persistent tree landmarks.
+// Key = tree_id, Value = Leaflet marker.
+let treeMarkers = new Map();
+
 
 /*
 ===============================================================
@@ -1511,63 +1515,189 @@ function connectMQTT() {
 
 function processTreeData(data) {
 
-    const count =
-        data.tree_count ??
-        data.trees ??
-        data.count ??
-        data.detected_count;
+    console.log("TREE DATA RECEIVED:", data);
 
+    const treeId =
+        data.tree_id ||
+        ("TREE_" + (
+            data.id !== undefined ? data.id : Date.now()
+        ));
 
     if (
-        count !== undefined &&
-        count !== null
+        data.latitude === undefined ||
+        data.longitude === undefined
     ) {
-
-        const number =
-            Number(count);
-
-
-        if (
-            !Number.isNaN(number)
-        ) {
-
-            totalTrees =
-                number;
-
-
-            treeCount.textContent =
-                totalTrees;
-
-        }
-
+        addLog("Tree received without GPS coordinates: " + treeId);
+        return;
     }
 
+    const lat = Number(data.latitude);
+    const lon = Number(data.longitude);
+
+    if (
+        Number.isNaN(lat) ||
+        Number.isNaN(lon) ||
+        (lat === 0 && lon === 0)
+    ) {
+        addLog("Invalid GPS coordinates for " + treeId);
+        return;
+    }
 
     /*
-    GPS may also be included
-    in tree detection message.
+    If this tree_id already exists, update its position/popup
+    instead of creating a duplicate landmark.
     */
+    if (treeMarkers.has(treeId)) {
 
+        const existingMarker = treeMarkers.get(treeId);
 
-    if (
-        data.latitude !== undefined &&
-        data.longitude !== undefined
-    ) {
+        existingMarker.setLatLng([lat, lon]);
 
-        updateGPS(
-            data.latitude,
-            data.longitude,
-            data.satellites,
-            data.hdop
+        existingMarker.setPopupContent(
+            createTreePopup(data, treeId, lat, lon)
         );
 
+        return;
     }
 
+    const treeIcon = L.divIcon({
+
+        className: "tree-landmark-icon",
+
+        html: `
+            <div style="
+                width:18px;
+                height:18px;
+                background:#12b76a;
+                border:3px solid white;
+                border-radius:50%;
+                box-shadow:0 0 8px rgba(0,0,0,0.55);
+            "></div>
+        `,
+
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+        popupAnchor: [0, -9]
+
+    });
+
+    const marker = L.marker(
+        [lat, lon],
+        { icon: treeIcon }
+    ).addTo(map);
+
+    marker.bindPopup(
+        createTreePopup(data, treeId, lat, lon)
+    );
+
+    treeMarkers.set(
+        treeId,
+        marker
+    );
+
+    totalTrees = treeMarkers.size;
+
+    treeCount.textContent = totalTrees;
 
     lastDetection.textContent =
-        new Date()
-        .toLocaleTimeString();
+        new Date().toLocaleTimeString();
 
+    addLog(
+        "Tree landmark added: " +
+        treeId +
+        " | " +
+        lat.toFixed(6) +
+        ", " +
+        lon.toFixed(6)
+    );
+}
+
+
+/*
+===============================================================
+                    TREE POPUP
+===============================================================
+*/
+
+function createTreePopup(
+    data,
+    treeId,
+    lat,
+    lon
+) {
+
+    const gpsFix =
+        data.gps_fix === true ||
+        data.gps_fix === "true"
+            ? "YES"
+            : "NO";
+
+    return `
+        <div style="
+            min-width:210px;
+            font-family:Arial,Helvetica,sans-serif;
+        ">
+
+            <div style="
+                font-size:16px;
+                font-weight:700;
+                margin-bottom:10px;
+            ">
+                Tree Landmark
+            </div>
+
+            <div>
+                <b>Tree ID:</b> ${treeId}
+            </div>
+
+            <div>
+                <b>Device:</b> ${data.device_id ?? "--"}
+            </div>
+
+            <hr style="
+                margin:9px 0;
+                border:0;
+                border-top:1px solid #ddd;
+            ">
+
+            <div>
+                <b>Latitude:</b> ${lat.toFixed(6)}
+            </div>
+
+            <div>
+                <b>Longitude:</b> ${lon.toFixed(6)}
+            </div>
+
+            <div>
+                <b>GPS Fix:</b> ${gpsFix}
+            </div>
+
+            <div>
+                <b>Satellites:</b> ${data.satellites ?? "--"}
+            </div>
+
+            <div>
+                <b>HDOP:</b> ${data.hdop ?? "--"}
+            </div>
+
+            <div>
+                <b>Confidence:</b> ${data.confidence ?? "--"}%
+            </div>
+
+            <div>
+                <b>Image X:</b> ${data.image_x ?? "--"}
+            </div>
+
+            <div>
+                <b>Image Y:</b> ${data.image_y ?? "--"}
+            </div>
+
+            <div style="margin-top:7px;">
+                <b>Detected:</b> ${data.timestamp ?? "--"}
+            </div>
+
+        </div>
+    `;
 }
 
 
@@ -1575,9 +1705,6 @@ function processTreeData(data) {
 ===============================================================
                     DEVICE DATA
 ===============================================================
-*/
-
-
 function processDeviceData(data) {
 
     if (
