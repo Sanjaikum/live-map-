@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Mechtrobotics | Live Tree Detection</title>
+
+    <!-- MQTT.js -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+    <!-- Leaflet -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    </script>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+
+            background: #f3f6fa;
+            color: #172033;
+        }
+
+        /* ================= HEADER ================= */
+
+        header {
+
+            background: #101828;
+
+            color: white;
+
+            padding: 18px 25px;
+
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+            flex-wrap: wrap;
+
+            gap: 15px;
+        }
+
+        .brand h1 {
+
+            font-size: 22px;
+
+        }
+
+        .brand p {
+
+            font-size: 13px;
+
+            margin-top: 4px;
+
+            color: #98a2b3;
+        }
+
+        .connection {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 9px;
+
+            font-size: 14px;
+        }
+
+        .status-dot {
+
+            width: 11px;
+
+            height: 11px;
+
+            border-radius: 50%;
+
+            background: #f04438;
+        }
+
+        .status-dot.connected {
+
+            background: #12b76a;
+
+            box-shadow:
+                0 0 10px
+                rgba(18,183,106,0.8);
+        }
+
+        /* ================= CONTAINER ================= */
+
+        .container {
+
+            max-width: 1400px;
+
+            margin: auto;
+
+            padding: 22px;
+        }
+
+        /* ================= HERO ================= */
+
+        .hero {
+
+            background: white;
+
+            border: 1px solid #e4e7ec;
+
+            border-radius: 16px;
+
+            padding: 22px;
+
+            margin-bottom: 20px;
+        }
+
+        .hero h2 {
+
+            font-size: 25px;
+
+            margin-bottom: 7px;
+        }
+
+        .hero p {
+
+            color: #667085;
+
+            font-size: 14px;
+        }
+
+        /* ================= CARDS ================= */
+
+        .cards {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(5, 1fr);
+
+            gap: 15px;
+
+            margin-bottom: 20px;
+        }
+
+        .card {
+
+            background: white;
+
+            border:
+                1px solid #e4e7ec;
+
+            border-radius: 14px;
+
+            padding: 18px;
+
+            min-height: 120px;
+        }
+
+        .card-title {
+
+            color: #667085;
+
+            font-size: 13px;
+
+            margin-bottom: 12px;
+        }
+
+        .card-value {
+
+            font-size: 27px;
+
+            font-weight: 700;
+        }
+
+        .unit {
+
+            font-size: 13px;
+
+            color: #667085;
+
+        }
+
+        .online {
+
+            color: #027a48;
+
+        }
+
+        .offline {
+
+            color: #b42318;
+
+        }
+
+        /* ================= MAP ================= */
+
+        .map-panel {
+
+            background: white;
+
+            border:
+                1px solid #e4e7ec;
+
+            border-radius: 16px;
+
+            padding: 15px;
+
+            margin-bottom: 20px;
+        }
+
+        .map-header {
+
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+            margin-bottom: 12px;
+
+            flex-wrap: wrap;
+
+            gap: 10px;
+        }
+
+        .map-header h3 {
+
+            font-size: 18px;
+
+        }
+
+        .map-status {
+
+            font-size: 13px;
+
+            color: #667085;
+
+        }
+
+        #map {
+
+            width: 100%;
+
+            height: 500px;
+
+            border-radius: 12px;
+
+            overflow: hidden;
+        }
+
+        /* ================= GRID ================= */
+
+        .grid {
+
+            display: grid;
+
+            grid-template-columns:
+                1fr 1fr;
+
+            gap: 20px;
+
+            margin-bottom: 20px;
+        }
+
+        .panel {
+
+            background: white;
+
+            border:
+                1px solid #e4e7ec;
+
+            border-radius: 14px;
+
+            padding: 20px;
+        }
+
+        .panel h3 {
+
+            font-size: 18px;
+
+            margin-bottom: 16px;
+
+        }
+
+        .info-row {
+
+            display: flex;
+
+            justify-content: space-between;
+
+            gap: 15px;
+
+            padding: 11px 0;
+
+            border-bottom:
+                1px solid #eaecf0;
+        }
+
+        .info-row:last-child {
+
+            border-bottom: none;
+        }
+
+        .label {
+
+            color: #667085;
+        }
+
+        .value {
+
+            font-weight: 600;
+
+            text-align: right;
+
+            word-break: break-word;
+        }
+
+        /* ================= BUTTON ================= */
+
+        .button-row {
+
+            display: flex;
+
+            gap: 10px;
+
+            margin-top: 16px;
+
+            flex-wrap: wrap;
+        }
+
+        button {
+
+            border: none;
+
+            border-radius: 8px;
+
+            padding: 10px 15px;
+
+            cursor: pointer;
+
+            font-weight: 600;
+        }
+
+        .primary-btn {
+
+            background: #175cd3;
+
+            color: white;
+        }
+
+        .secondary-btn {
+
+            background: #eaecf0;
+
+            color: #344054;
+        }
+
+        /* ================= LOG ================= */
+
+        .logs {
+
+            background: #101828;
+
+            color: #d0d5dd;
+
+            height: 240px;
+
+            overflow-y: auto;
+
+            border-radius: 10px;
+
+            padding: 14px;
+
+            font-family: monospace;
+
+            font-size: 12px;
+        }
+
+        .log-line {
+
+            padding: 5px 0;
+
+            border-bottom:
+                1px solid
+                rgba(255,255,255,0.05);
+        }
+
+        /* ================= FOOTER ================= */
+
+        footer {
+
+            text-align: center;
+
+            padding: 25px;
+
+            color: #667085;
+
+            font-size: 13px;
+        }
+
+        /* ================= MOBILE ================= */
+
+        @media(max-width:1100px) {
+
+            .cards {
+
+                grid-template-columns:
+                    repeat(3,1fr);
+            }
+
+        }
+
+        @media(max-width:750px) {
+
+            .cards {
+
+                grid-template-columns:
+                    repeat(2,1fr);
+            }
+
+            .grid {
+
+                grid-template-columns:
+                    1fr;
+            }
+
+            #map {
+
+                height: 400px;
+            }
+
+        }
+
+        @media(max-width:500px) {
+
+            .container {
+
+                padding: 12px;
+            }
+
+            .cards {
+
+                grid-template-columns:
+                    1fr;
+            }
+
+            #map {
+
+                height: 350px;
+            }
+
+            .hero h2 {
+
+                font-size: 21px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<!-- =========================================================
+     HEADER
+========================================================= -->
+
+<header>
+
+    <div class="brand">
+
+        <h1>Mechtrobotics</h1>
+
+        <p>
+            AI + IoT Tree Detection System
+        </p>
+
+    </div>
+
+    <div class="connection">
+
+        <span
+            id="statusDot"
+            class="status-dot">
+        </span>
+
+        <span id="connectionText">
+            Disconnected
+        </span>
+
+    </div>
+
+</header>
+
+
+<div class="container">
+
+    <!-- =====================================================
+         HERO
+    ====================================================== -->
+
+    <div class="hero">
+
+        <h2>
+            Live Tree Detection Monitoring
+        </h2>
+
+        <p>
+            Raspberry Pi + AI Detection + EC200U GNSS + HiveMQ
+        </p>
+
+    </div>
+
+
+    <!-- =====================================================
+         CARDS
+    ====================================================== -->
+
+    <div class="cards">
+
+        <div class="card">
+
+            <div class="card-title">
+                Tree Count
+            </div>
+
+            <span
+                id="treeCount"
+                class="card-value">
+                0
+            </span>
+
+            <span class="unit">
+                trees
+            </span>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                GPS
+            </div>
+
+            <span
+                id="gpsStatus"
+                class="card-value offline">
+                NO FIX
+            </span>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                Satellites
+            </div>
+
+            <span
+                id="satellites"
+                class="card-value">
+                0
+            </span>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                HDOP
+            </div>
+
+            <span
+                id="hdopCard"
+                class="card-value">
+                --
+            </span>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                Device
+            </div>
+
+            <span
+                id="deviceStatus"
+                class="card-value offline">
+                OFFLINE
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         LIVE MAP
+    ====================================================== -->
+
+    <div class="map-panel">
+
+        <div class="map-header">
+
+            <h3>
+                Live GPS Map
+            </h3>
+
+            <div
+                id="mapStatus"
+                class="map-status">
+
+                Waiting for GPS...
+
+            </div>
+
+        </div>
+
+
+        <div id="map"></div>
+
+
+        <div class="button-row">
+
+            <button
+                class="primary-btn"
+                onclick="centerOnDevice()">
+
+                Center on Device
+
+            </button>
+
+
+            <button
+                class="secondary-btn"
+                onclick="clearPath()">
+
+                Clear Path
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         GPS + DEVICE
+    ====================================================== -->
+
+    <div class="grid">
+
+        <!-- GPS PANEL -->
+
+        <div class="panel">
+
+            <h3>
+                GPS Information
+            </h3>
+
+
+            <div class="info-row">
+
+                <span class="label">
+                    Latitude
+                </span>
+
+                <span
+                    id="latitude"
+                    class="value">
+
+                    --
+
+                </span>
+
+            </div>
+
+
+            <div class="info-row">
+
+                <span class="label">
+                    Longitude
+                </span>
+
+                <span
+                    id="longitude"
+                    class="value">
+
+                    --
+
+                </span>
+
+            </div>
+
+
+            <div class="info-row">
+
+                <span class="label">
+                    Satellites
+                </span>
+
+                <span
+                    id="gpsSatellites"
+                    class="value">
+
+                    --
+
+                </span>
+
+            </div>
+
+
+            <div class="info-row">
+
+                <span class="label">
+                    HDOP
+                </span>
+
+                <span
+                    id="hdop"
+                    class="value">
+
+                    --
+
+                </span>
+
+            </div>
+
+
+            <div class="info-row">
+
+                <span class="label">
+                    Last GPS Update
+                </span>
+
+                <span
+                    id="gpsTime"
+                    class="value">
+
+                    --
+
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- DEVICE PANEL -->
+
+        <div class="panel">
+
+            <h3>
+                Device Information
+            </h3>
+
+
+            <div class="info-row">
+
+                <span class="label">
+                    Device ID
+                </span>
+
+                <span
+                    id="deviceId"
+                    class="value">
+
+                    --
+
+                </span>
+
+            </div>
+
+
+            <div class="info-row">
+
+                <span class="label">
+                    MQTT
+                </span>
+
+                <span
+                    id="mqttStatus"
+                    class="value offline">
+
+                    Disconnected
+
+                </span>
+
+            </div>
+
+
+            <div class="info-row">
+
+                <span class="label">
+                    Last MQTT Message
+                </span>
+
+                <span
+                    id="lastMessage"
+                    class="value">
+
+                    --
+
+                </span>
+
+            </div>
+
+
+            <div class="info-row">
+
+                <span class="label">
+                    Last Tree Detection
+                </span>
+
+                <span
+                    id="lastDetection"
+                    class="value">
+
+                    --
+
+                </span>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         MQTT LOG
+    ====================================================== -->
+
+    <div class="panel">
+
+        <h3>
+            MQTT Live Messages
+        </h3>
+
+        <div
+            id="logs"
+            class="logs">
+
+            <div class="log-line">
+                Dashboard starting...
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<footer>
+
+    Mechtrobotics Pvt Ltd |
+    AI + IoT Tree Detection System
+
+</footer>
+
+
+<script>
+/* ===============================================================
+   MECHTROBOTICS TREE DASHBOARD - CLEAN MQTT CLIENT
+   =============================================================== */
+
+const MQTT_HOST = "9e3ed49b452c4e20bf321f93db6bb743.s1.eu.hivemq.cloud";
+const MQTT_PORT = 8884;
+const MQTT_URL = `wss://${MQTT_HOST}:${MQTT_PORT}/mqtt`;
+
+const MQTT_USERNAME = 'pothole1';
+const MQTT_PASSWORD = '12345678';
+
+const TREE_TOPIC = "tree/detections";
+const DEVICE_TOPIC = "tree/device";
+
+let client = null;
+let currentLatitude = null;
+let currentLongitude = null;
+let currentMarker = null;
+let pathLine = null;
+let pathCoordinates = [];
+let firstGPSFix = true;
+const treeMarkers = new Map();
+
+/* ================= MAP ================= */
+
+const map = L.map("map").setView([10.8919, 78.7258], 15);
+
+L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+    }
+).addTo(map);
+
+const deviceIcon = L.divIcon({
+    className: "device-marker",
+    html: `<div style="
+        width:20px;height:20px;background:#175cd3;
+        border:4px solid white;border-radius:50%;
+        box-shadow:0 0 10px rgba(0,0,0,0.5);
+    "></div>`,
+    iconSize: [20,20],
+    iconAnchor: [10,10]
+});
+
+/* ================= DOM ================= */
+
+const statusDot = document.getElementById("statusDot");
+const connectionText = document.getElementById("connectionText");
+const mqttStatus = document.getElementById("mqttStatus");
+const treeCount = document.getElementById("treeCount");
+const gpsStatus = document.getElementById("gpsStatus");
+const satellites = document.getElementById("satellites");
+const hdopCard = document.getElementById("hdopCard");
+const latitude = document.getElementById("latitude");
+const longitude = document.getElementById("longitude");
+const gpsSatellites = document.getElementById("gpsSatellites");
+const hdop = document.getElementById("hdop");
+const gpsTime = document.getElementById("gpsTime");
+const deviceStatus = document.getElementById("deviceStatus");
+const deviceId = document.getElementById("deviceId");
+const lastMessage = document.getElementById("lastMessage");
+const lastDetection = document.getElementById("lastDetection");
+const logs = document.getElementById("logs");
+const mapStatus = document.getElementById("mapStatus");
+
+/* ================= LOG ================= */
+
+function addLog(message) {
+    const line = document.createElement("div");
+    line.className = "log-line";
+    line.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
+    logs.prepend(line);
+
+    while (logs.children.length > 100) {
+        logs.removeChild(logs.lastChild);
+    }
+
+    console.log(message);
+}
+
+/* ================= STATUS ================= */
+
+function setConnected() {
+    statusDot.classList.add("connected");
+    connectionText.textContent = "HiveMQ Connected";
+    mqttStatus.textContent = "Connected";
+    mqttStatus.className = "value online";
+    deviceStatus.textContent = "ONLINE";
+    deviceStatus.className = "card-value online";
+}
+
+function setDisconnected(reason) {
+    statusDot.classList.remove("connected");
+    connectionText.textContent = "Disconnected";
+    mqttStatus.textContent = reason || "Disconnected";
+    mqttStatus.className = "value offline";
+}
+
+/* ================= GPS ================= */
+
+function updateGPS(lat, lon, sat, hdopValue) {
+    const latNumber = Number(lat);
+    const lonNumber = Number(lon);
+
+    if (!Number.isFinite(latNumber) || !Number.isFinite(lonNumber) ||
+        (latNumber === 0 && lonNumber === 0)) {
+        addLog("GPS coordinates invalid");
+        return false;
+    }
+
+    currentLatitude = latNumber;
+    currentLongitude = lonNumber;
+
+    latitude.textContent = latNumber.toFixed(6);
+    longitude.textContent = lonNumber.toFixed(6);
+
+    if (sat !== undefined && sat !== null) {
+        satellites.textContent = sat;
+        gpsSatellites.textContent = sat;
+    }
+
+    if (hdopValue !== undefined && hdopValue !== null) {
+        const h = Number(hdopValue);
+        if (Number.isFinite(h)) {
+            hdop.textContent = h.toFixed(2);
+            hdopCard.textContent = h.toFixed(2);
+        }
+    }
+
+    gpsStatus.textContent = "FIX";
+    gpsStatus.className = "card-value online";
+    gpsTime.textContent = new Date().toLocaleTimeString();
+
+    mapStatus.textContent =
+        "Live GPS: " + latNumber.toFixed(6) + ", " + lonNumber.toFixed(6);
+
+    const position = [latNumber, lonNumber];
+
+    if (currentMarker === null) {
+        currentMarker = L.marker(position, {icon: deviceIcon}).addTo(map);
+        currentMarker.bindPopup(
+            "<b>Mechtrobotics Device</b><br>" +
+            "Latitude: " + latNumber.toFixed(6) + "<br>" +
+            "Longitude: " + lonNumber.toFixed(6)
+        );
+        map.setView(position, 17);
+        firstGPSFix = false;
+    } else {
+        currentMarker.setLatLng(position);
+    }
+
+    currentMarker.setPopupContent(
+        "<b>Mechtrobotics Device</b><br>" +
+        "Latitude: " + latNumber.toFixed(6) + "<br>" +
+        "Longitude: " + lonNumber.toFixed(6) + "<br>" +
+        "Satellites: " + (sat ?? "--") + "<br>" +
+        "HDOP: " + (hdopValue ?? "--")
+    );
+
+    pathCoordinates.push(position);
+    if (pathCoordinates.length > 1000) pathCoordinates.shift();
+
+    if (pathLine !== null) map.removeLayer(pathLine);
+    pathLine = L.polyline(pathCoordinates, {weight: 4}).addTo(map);
+
+    return true;
+}
+
+/* ================= TREE ================= */
+
+function treePopup(data, treeId, lat, lon) {
+    const fix =
+        data.gps_fix === true ||
+        data.gps_fix === "true" ||
+        data.gps_fix === 1 ||
+        data.gps_fix === "1";
+
+    return `
+        <div style="min-width:210px;font-family:Arial,Helvetica,sans-serif">
+            <div style="font-size:16px;font-weight:700;margin-bottom:10px">
+                Tree Landmark
+            </div>
+            <b>Tree ID:</b> ${treeId}<br>
+            <b>Device:</b> ${data.device_id ?? "--"}<hr>
+            <b>Latitude:</b> ${lat.toFixed(6)}<br>
+            <b>Longitude:</b> ${lon.toFixed(6)}<br>
+            <b>GPS Fix:</b> ${fix ? "YES" : "NO"}<br>
+            <b>Satellites:</b> ${data.satellites ?? "--"}<br>
+            <b>HDOP:</b> ${data.hdop ?? "--"}<br>
+            <b>Confidence:</b> ${data.confidence ?? "--"}%<br>
+            <b>Detected:</b> ${data.timestamp ?? "--"}
+        </div>
+    `;
+}
+
+function processTreeData(data) {
+    addLog("TREE MESSAGE RECEIVED");
+
+    const treeId =
+        data.tree_id ||
+        ("TREE_" + (data.id !== undefined ? data.id : Date.now()));
+
+    const gpsFix =
+        data.gps_fix === true ||
+        data.gps_fix === "true" ||
+        data.gps_fix === 1 ||
+        data.gps_fix === "1";
+
+    const lat = Number(data.latitude);
+    const lon = Number(data.longitude);
+
+    addLog(
+        "TREE GPS: fix=" + gpsFix +
+        " lat=" + data.latitude +
+        " lon=" + data.longitude
+    );
+
+    // Raspberry Pi tree messages may include valid coordinates without gps_fix.
+    // Trust valid latitude/longitude when the optional gps_fix field is absent.
+    const hasValidCoordinates =
+        Number.isFinite(lat) && Number.isFinite(lon) &&
+        lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 &&
+        !(lat === 0 && lon === 0);
+
+    if (!hasValidCoordinates || (data.gps_fix !== undefined && !gpsFix)) {
+        addLog("TREE " + treeId + ": invalid GPS / no fix - landmark skipped");
+        return;
+    }
+
+    updateGPS(lat, lon, data.satellites, data.hdop);
+
+    if (treeMarkers.has(treeId)) {
+        const marker = treeMarkers.get(treeId);
+        marker.setLatLng([lat, lon]);
+        marker.setPopupContent(treePopup(data, treeId, lat, lon));
+        addLog("TREE LANDMARK UPDATED: " + treeId);
+        return;
+    }
+
+    const treeIcon = L.divIcon({
+        className: "tree-landmark-icon",
+        html: `<div style="
+            width:18px;height:18px;background:#12b76a;
+            border:3px solid white;border-radius:50%;
+            box-shadow:0 0 8px rgba(0,0,0,0.55);
+        "></div>`,
+        iconSize: [18,18],
+        iconAnchor: [9,9],
+        popupAnchor: [0,-9]
+    });
+
+    const marker = L.marker([lat, lon], {icon: treeIcon}).addTo(map);
+    marker.bindPopup(treePopup(data, treeId, lat, lon));
+
+    treeMarkers.set(treeId, marker);
+    treeCount.textContent = treeMarkers.size;
+    lastDetection.textContent = new Date().toLocaleTimeString();
+
+    addLog(
+        "TREE LANDMARK ADDED: " + treeId +
+        " | " + lat.toFixed(6) + ", " + lon.toFixed(6)
+    );
+
+    marker.openPopup();
+}
+
+/* ================= DEVICE ================= */
+
+function processDeviceData(data) {
+    if (data.device_id !== undefined) {
+        deviceId.textContent = data.device_id;
+    }
+
+    const gpsFix =
+        data.gps_fix === undefined ||
+        data.gps_fix === true ||
+        data.gps_fix === "true" ||
+        data.gps_fix === 1 ||
+        data.gps_fix === "1";
+
+    const hasCoordinates =
+        data.latitude !== undefined && data.longitude !== undefined &&
+        Number.isFinite(Number(data.latitude)) &&
+        Number.isFinite(Number(data.longitude));
+
+    if (hasCoordinates && gpsFix) {
+        updateGPS(data.latitude, data.longitude, data.satellites, data.hdop);
+    } else if (!gpsFix) {
+        gpsStatus.textContent = "NO FIX";
+        gpsStatus.className = "card-value offline";
+        mapStatus.textContent = "Waiting for GPS fix...";
+    }
+}
+
+/* ================= MQTT ================= */
+
+function connectMQTT() {
+    addLog("MQTT: starting connection");
+    addLog("MQTT URL: " + MQTT_URL);
+
+    if (typeof mqtt === "undefined") {
+        addLog("FATAL: mqtt.js was not loaded");
+        connectionText.textContent = "MQTT.js ERROR";
+        return;
+    }
+
+    try {
+        client = mqtt.connect(MQTT_URL, {
+            username: MQTT_USERNAME,
+            password: MQTT_PASSWORD,
+            clientId:
+                "tree_dashboard_" +
+                Math.random().toString(16).substring(2),
+            clean: true,
+            reconnectPeriod: 5000,
+            connectTimeout: 15000,
+            keepalive: 60,
+            protocolVersion: 4
+        });
+    } catch (e) {
+        addLog("MQTT CREATE ERROR: " + e.message);
+        return;
+    }
+
+    client.on("connect", function() {
+        setConnected();
+        addLog("HIVEMQ CONNECTED");
+
+        client.subscribe(TREE_TOPIC, function(err) {
+            if (err) {
+                addLog("TREE SUBSCRIBE ERROR: " + err.message);
+            } else {
+                addLog("SUBSCRIBED: " + TREE_TOPIC);
+            }
+        });
+
+        client.subscribe(DEVICE_TOPIC, function(err) {
+            if (err) {
+                addLog("DEVICE SUBSCRIBE ERROR: " + err.message);
+            } else {
+                addLog("SUBSCRIBED: " + DEVICE_TOPIC);
+            }
+        });
+    });
+
+    client.on("message", function(topic, message) {
+        const text = message.toString();
+
+        addLog("MESSAGE: " + topic);
+
+        lastMessage.textContent = new Date().toLocaleTimeString();
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            addLog("JSON ERROR: " + e.message);
+            return;
+        }
+
+        if (topic === TREE_TOPIC) {
+            processTreeData(data);
+        } else if (topic === DEVICE_TOPIC) {
+            processDeviceData(data);
+        } else {
+            addLog("UNKNOWN TOPIC: " + topic);
+        }
+    });
+
+    client.on("error", function(error) {
+        addLog(
+            "MQTT ERROR: " +
+            (error && error.message ? error.message : String(error))
+        );
+        setDisconnected("MQTT ERROR");
+    });
+
+    client.on("offline", function() {
+        addLog("MQTT OFFLINE");
+        setDisconnected("Offline");
+    });
+
+    client.on("close", function() {
+        addLog("MQTT SOCKET CLOSED");
+        setDisconnected("Disconnected");
+    });
+
+    client.on("reconnect", function() {
+        addLog("MQTT RECONNECTING...");
+        connectionText.textContent = "Reconnecting...";
+    });
+}
+
+/* ================= BUTTONS ================= */
+
+function centerOnDevice() {
+    if (currentLatitude === null || currentLongitude === null) {
+        alert("GPS location is not available yet.");
+        return;
+    }
+
+    map.setView([currentLatitude, currentLongitude], 18);
+
+    if (currentMarker !== null) currentMarker.openPopup();
+}
+
+function clearPath() {
+    pathCoordinates = [];
+
+    if (pathLine !== null) {
+        map.removeLayer(pathLine);
+        pathLine = null;
+    }
+
+    addLog("GPS path cleared");
+}
+
+/* ================= START ================= */
+
+addLog("Dashboard starting...");
+addLog("Leaflet map initialized");
+addLog("MQTT.js loaded: " + (typeof mqtt !== "undefined" ? "YES" : "NO"));
+addLog("Tree topic: " + TREE_TOPIC);
+addLog("Device topic: " + DEVICE_TOPIC);
+
+connectMQTT();
+</script>
+
+</body>
+</html>
